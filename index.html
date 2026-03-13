@@ -164,7 +164,7 @@ body {
 <div class="app">
 
   <div class="top-bar">
-    <div class="brand">Body<em style="font-style:italic;">Lab</em> <span style="font-size:10px; color:var(--muted); font-family:'Outfit',sans-serif; font-weight:500; letter-spacing:0.05em;">v0.5</span></div>
+    <div class="brand">Body<em style="font-style:italic;">Lab</em> <span style="font-size:10px; color:var(--muted); font-family:'Outfit',sans-serif; font-weight:500; letter-spacing:0.05em;">v0.5a</span></div>
     <div class="phase-badge" id="phaseBadge">Select Movement</div>
   </div>
   <div style="padding:0 20px;">
@@ -702,7 +702,7 @@ Return ONLY valid JSON (no markdown fences, no preamble):
 }`});
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
+    const res = await fetch('https://chiabot.nebgo.workers.dev/',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
