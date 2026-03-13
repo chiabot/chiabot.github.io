@@ -702,23 +702,34 @@ Return ONLY valid JSON (no markdown fences, no preamble):
 }`});
 
   try {
-    const res = await fetch('https://chiabot.nebgo.workers.dev/',{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
+        max_tokens:4000,
         messages:[{role:'user',content}]
       })
     });
     const data = await res.json();
+
+    // Handle API-level errors (e.g. auth, rate limit)
+    if (data.error) throw new Error('API error: ' + JSON.stringify(data.error));
+
     const raw = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    // Strip markdown fences and any leading/trailing non-JSON text
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response. Raw: ' + raw.substring(0, 300));
+
+    const parsed = JSON.parse(jsonMatch[0]);
     clearInterval(msgT);
     renderResults(parsed);
   } catch(e) {
     clearInterval(msgT);
-    document.getElementById('loadingMsg').innerHTML = 'Something went wrong. Please check your connection and try again.<br><br><button class="btn btn-ghost" style="width:auto;padding:10px 20px;" onclick="goStep4()">← Go back</button>';
+    document.getElementById('loadingMsg').innerHTML =
+      `<span style="color:var(--rust); font-weight:600;">Error:</span> ${e.message}<br><br>` +
+      `<button class="btn btn-ghost" style="width:auto;padding:10px 20px;" onclick="goStep4()">← Go back</button>`;
   }
 }
 
