@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>BodyLab Camera</title>
+
+<!-- MediaPipe Pose -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --sage: #5a7a5a;
+  --rust: #c4622d;
+  --gold: #c9a84c;
+  --paper: #f5f0e8;
+  --ink: #1a1a2e;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: #000;
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+}
+
+/* ── Camera stack ── */
+.cam-wrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+#inputVideo {
+  position: absolute;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror */
+}
+
+#poseCanvas {
+  position: absolute;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+/* Ghost SVG overlay — target body outline */
+#ghostOverlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  opacity: 0.35;
+  transition: opacity 0.4s;
+}
+#ghostOverlay.dim { opacity: 0.12; }
+#ghostOverlay svg { height: 88vh; width: auto; }
+
+/* Flash on capture */
+#flashEl {
+  position: absolute; inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s;
+}
+#flashEl.flash { opacity: 0.85; }
+
+/* ── Top bar ── */
+.top-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 16px 16px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%);
+  z-index: 10;
+}
+.top-move-name {
+  font-size: 13px; font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  display: flex; align-items: center; gap: 8px;
+}
+.top-icon { font-size: 18px; }
+.btn-close {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+  color: white; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+
+/* ── Alignment cue chips ── */
+.cue-strip {
+  position: absolute; top: 72px; left: 0; right: 0;
+  display: flex; justify-content: center;
+  padding: 0 16px;
+  z-index: 10;
+  pointer-events: none;
+}
+.cue-chip {
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 100px;
+  padding: 7px 16px;
+  font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  text-align: center;
+  transition: opacity 0.4s, transform 0.4s;
+  max-width: 280px;
+}
+.cue-chip.hidden { opacity: 0; transform: translateY(-6px); }
+
+/* ── Pose status indicator ── */
+.pose-status {
+  position: absolute;
+  top: 110px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,0.8);
+  letter-spacing: 0.04em;
+  transition: all 0.3s;
+}
+.pose-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #aaa;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.pose-status.loading .pose-dot { background: var(--gold); animation: blink 1s ease infinite; }
+.pose-status.detected .pose-dot { background: #5de8a0; box-shadow: 0 0 8px #5de8a0; }
+.pose-status.no-pose .pose-dot { background: var(--rust); }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Countdown ring ── */
+.countdown-wrap {
+  position: absolute; bottom: 140px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: none;
+  flex-direction: column; align-items: center; gap: 8px;
+}
+.countdown-wrap.visible { display: flex; }
+
+.countdown-ring-wrap {
+  position: relative;
+  width: 80px; height: 80px;
+}
+.countdown-ring-wrap svg {
+  position: absolute; inset: 0;
+  transform: rotate(-90deg);
+}
+.ring-track { fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 4; }
+.ring-fill {
+  fill: none; stroke: #5de8a0; stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.countdown-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 700; color: white;
+}
+.countdown-label {
+  font-size: 12px; color: rgba(255,255,255,0.7);
+  text-align: center; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* ── Bottom controls ── */
+.bottom-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 20px 24px 36px;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+  z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.btn-shutter-wrap { position: relative; }
+.btn-shutter {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: white; border: 4px solid rgba(255,255,255,0.35);
+  cursor: pointer; position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+.btn-shutter:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+.btn-shutter::after {
+  content: ''; position: absolute; inset: 5px;
+  border-radius: 50%; background: rgba(255,255,255,0.9);
+}
+.btn-shutter.armed {
+  border-color: #5de8a0;
+  box-shadow: 0 0 0 3px rgba(93,232,160,0.35);
+}
+
+.btn-side {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px); color: white;
+  font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.btn-side:hover { background: rgba(255,255,255,0.15); }
+
+.photo-counter {
+  position: absolute; top: -8px; right: -8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #5de8a0; color: #0a0a0a;
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  display: none;
+}
+
+/* ── Thumbnail strip ── */
+.thumb-strip {
+  position: absolute; bottom: 120px; left: 0; right: 0;
+  display: flex; gap: 8px; justify-content: center;
+  padding: 0 16px;
+  z-index: 10;
+  pointer-events: none;
+}
+.thumb {
+  width: 52px; height: 70px; border-radius: 8px;
+  overflow: hidden; border: 2px solid rgba(255,255,255,0.4);
+  flex-shrink: 0;
+  animation: popIn 0.25s ease both;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+@keyframes popIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+
+/* ── Done button ── */
+#doneBtn {
+  position: absolute; bottom: 150px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  background: #5de8a0; color: #0a1a0a;
+  border: none; border-radius: 100px;
+  padding: 12px 32px; font-size: 15px; font-weight: 700;
+  cursor: pointer; display: none;
+  box-shadow: 0 4px 20px rgba(93,232,160,0.4);
+  font-family: inherit;
+  animation: slideUp 0.3s ease both;
+}
+#doneBtn.visible { display: block; }
+@keyframes slideUp { from{transform:translateX(-50%) translateY(10px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+
+/* ── Skeleton styles (drawn on canvas) ── */
+/* controlled via JS drawing_utils */
+
+/* ── Loading overlay ── */
+#loadingOverlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 20; gap: 16px;
+  color: white;
+}
+#loadingOverlay.hidden { display: none; }
+.loading-ring {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #5de8a0;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+#loadingOverlay p { font-size: 14px; color: rgba(255,255,255,0.7); }
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+</style>
+</head>
+<body>
+
+<div class="cam-wrap">
+  <video id="inputVideo" autoplay playsinline muted></video>
+  <canvas id="poseCanvas"></canvas>
+  <div id="ghostOverlay"></div>
+  <div id="flashEl"></div>
+</div>
+
+<!-- Loading -->
+<div id="loadingOverlay">
+  <div class="loading-ring"></div>
+  <p id="loadingMsg">Starting camera…</p>
+</div>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <div class="top-move-name">
+    <span class="top-icon" id="topIcon">🧘</span>
+    <span id="topName">Movement Assessment</span>
+  </div>
+  <button class="btn-close" onclick="cancelAndReturn()">✕</button>
+</div>
+
+<!-- Cue chip -->
+<div class="cue-strip">
+  <div class="cue-chip hidden" id="cueChip">Align your body in the frame</div>
+</div>
+
+<!-- Pose status -->
+<div class="pose-status loading" id="poseStatus">
+  <div class="pose-dot"></div>
+  <span id="poseStatusText">Loading pose model…</span>
+</div>
+
+<!-- Countdown -->
+<div class="countdown-wrap" id="countdownWrap">
+  <div class="countdown-ring-wrap">
+    <svg viewBox="0 0 80 80">
+      <circle class="ring-track" cx="40" cy="40" r="35"/>
+      <circle class="ring-fill" id="ringFill" cx="40" cy="40" r="35"/>
+    </svg>
+    <div class="countdown-num" id="countdownNum">3</div>
+  </div>
+  <div class="countdown-label">Hold still…</div>
+</div>
+
+<!-- Thumbnail strip -->
+<div class="thumb-strip" id="thumbStrip"></div>
+
+<!-- Done button -->
+<button id="doneBtn" onclick="finishAndReturn()">Use these photos ✓</button>
+
+<!-- Bottom bar -->
+<div class="bottom-bar">
+  <button class="btn-side" onclick="flipCamera()" title="Flip camera">⟳</button>
+  <div class="btn-shutter-wrap">
+    <button class="btn-shutter" id="shutterBtn" onclick="manualCapture()"></button>
+    <div class="photo-counter" id="photoCounter">0</div>
+  </div>
+  <button class="btn-side" onclick="toggleGhost()" title="Toggle outline" id="ghostBtn">👤</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════
+const COUNTDOWN_SECS = 3;
+const MAX_PHOTOS = 4;
+const CIRCUMFERENCE = 2 * Math.PI * 35; // ~220
+
+const MOVEMENT_DATA = {
+  'forward-fold': {
+    icon: '🧘', name: 'Standing Forward Fold',
+    cues: [
+      'Stand facing the camera, feet hip-width',
+      'Step back so your full body is visible',
+      'Inhale tall, then fold forward slowly',
+      'Let arms hang — hold your deepest position',
+      'Keep breathing, stay still for capture'
+    ],
+    ghost: buildGhost('forward-fold')
+  },
+  'deep-squat': {
+    icon: '🏋️', name: 'Deep Squat Hold',
+    cues: [
+      'Face the camera, feet shoulder-width',
+      'Toes angled out 30–45°',
+      'Sink slowly into your deepest squat',
+      'Arms forward for balance if needed',
+      'Hold the bottom position, stay still'
+    ],
+    ghost: buildGhost('deep-squat')
+  },
+  'shoulder-reach': {
+    icon: '🙋', name: 'Overhead Arm Reach',
+    cues: [
+      'Stand sideways to the camera',
+      'Feet hip-width, arms at sides',
+      'Raise both arms overhead slowly',
+      'Try to reach fully vertical',
+      'Hold the top position, stay still'
+    ],
+    ghost: buildGhost('shoulder-reach')
+  },
+  'neck-rotation': {
+    icon: '🔄', name: 'Neck Rotation',
+    cues: [
+      'Sit or stand, face the camera',
+      'Shoulders relaxed and level',
+      'Slowly turn head to the LEFT',
+      'Hold 3 seconds, return, turn RIGHT',
+      'Note which side feels tighter'
+    ],
+    ghost: buildGhost('neck-rotation')
+  },
+  'cat-cow': {
+    icon: '🐱', name: 'Cat-Cow Spinal Wave',
+    cues: [
+      'Get on hands and knees, side to camera',
+      'Wrists under shoulders, knees under hips',
+      'Inhale: arch back (cow pose)',
+      'Exhale: round spine (cat pose)',
+      'Cycle slowly, hold each end position'
+    ],
+    ghost: buildGhost('cat-cow')
+  },
+  'hip-hinge': {
+    icon: '↩️', name: 'Hip Hinge',
+    cues: [
+      'Stand sideways to the camera',
+      'Feet hip-width, soft knees',
+      'Push hips straight back',
+      'Keep spine long and neutral',
+      'Hold bottom position, stay still'
+    ],
+    ghost: buildGhost('hip-hinge')
+  }
+};
+
+// ══════════════════════════════════════════════
+// GHOST SVG BUILDER
+// Simplified body outline silhouettes per movement
+// ══════════════════════════════════════════════
+function buildGhost(mvId) {
+  const c = 'rgba(93,232,160,0.9)';
+  const s = `stroke="${c}" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+
+  const ghosts = {
+    'forward-fold': `
+      <svg viewBox="0 0 120 340" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head -->
+        <circle cx="60" cy="22" r="16" ${s}/>
+        <!-- Torso folded forward — spine curves down -->
+        <path d="M60 38 Q55 80 40 130" ${s}/>
+        <!-- Arms hanging down -->
+        <path d="M55 55 Q35 90 28 140" ${s}/>
+        <path d="M55 55 Q50 95 45 140" ${s}/>
+        <!-- Hips -->
+        <path d="M40 130 Q60 140 80 130" ${s}/>
+        <!-- Legs — slightly bent knees -->
+        <path d="M48 132 Q44 200 46 260" ${s}/>
+        <path d="M72 132 Q76 200 74 260" ${s}/>
+        <!-- Feet -->
+        <path d="M46 260 Q38 265 30 262" ${s}/>
+        <path d="M74 260 Q82 265 90 262" ${s}/>
+      </svg>`,
+    'deep-squat': `
+      <svg viewBox="0 0 160 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head -->
+        <circle cx="80" cy="22" r="16" ${s}/>
+        <!-- Torso upright-ish -->
+        <path d="M80 38 L80 110" ${s}/>
+        <!-- Arms forward for balance -->
+        <path d="M72 60 Q50 80 30 90" ${s}/>
+        <path d="M88 60 Q110 80 130 90" ${s}/>
+        <!-- Hips wide -->
+        <path d="M60 110 Q80 118 100 110" ${s}/>
+        <!-- Thighs — deep squat angle -->
+        <path d="M65 112 Q40 150 35 195" ${s}/>
+        <path d="M95 112 Q120 150 125 195" ${s}/>
+        <!-- Shins vertical -->
+        <path d="M35 195 Q32 235 33 255" ${s}/>
+        <path d="M125 195 Q128 235 127 255" ${s}/>
+        <!-- Feet flat -->
+        <path d="M33 255 Q22 260 14 258" ${s}/>
+        <path d="M127 255 Q138 260 146 258" ${s}/>
+      </svg>`,
+    'shoulder-reach': `
+      <svg viewBox="0 0 120 360" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head -->
+        <circle cx="60" cy="22" r="16" ${s}/>
+        <!-- Torso -->
+        <path d="M60 38 L60 140" ${s}/>
+        <!-- Arms fully raised -->
+        <path d="M52 55 Q45 30 44 10" ${s}/>
+        <path d="M68 55 Q75 30 76 10" ${s}/>
+        <!-- Hips -->
+        <path d="M48 140 Q60 148 72 140" ${s}/>
+        <!-- Legs straight -->
+        <path d="M52 142 L50 260" ${s}/>
+        <path d="M68 142 L70 260" ${s}/>
+        <!-- Feet -->
+        <path d="M50 260 Q42 265 34 262" ${s}/>
+        <path d="M70 260 Q78 265 86 262" ${s}/>
+      </svg>`,
+    'neck-rotation': `
+      <svg viewBox="0 0 120 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head turned -->
+        <ellipse cx="68" cy="22" rx="18" ry="16" ${s}/>
+        <!-- Neck -->
+        <path d="M60 36 L58 52" ${s}/>
+        <!-- Shoulders level -->
+        <path d="M30 58 L90 58" ${s}/>
+        <!-- Torso -->
+        <path d="M60 58 L60 150" ${s}/>
+        <!-- Arms relaxed at sides -->
+        <path d="M38 62 Q32 100 30 140" ${s}/>
+        <path d="M82 62 Q88 100 90 140" ${s}/>
+        <!-- Hips -->
+        <path d="M48 150 Q60 158 72 150" ${s}/>
+        <!-- Legs -->
+        <path d="M52 152 L50 260" ${s}/>
+        <path d="M68 152 L70 260" ${s}/>
+      </svg>`,
+    'cat-cow': `
+      <svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head (cat: tucked) -->
+        <circle cx="40" cy="80" r="14" ${s}/>
+        <!-- Arched spine (cow) -->
+        <path d="M54 84 Q100 50 140 55 Q180 60 220 80" ${s}/>
+        <!-- Front arms -->
+        <path d="M62 88 L55 145" ${s}/>
+        <path d="M70 88 L75 145" ${s}/>
+        <!-- Rear legs -->
+        <path d="M210 84 L205 145" ${s}/>
+        <path d="M218 84 L225 145" ${s}/>
+        <!-- Hands/feet -->
+        <path d="M55 145 Q46 150 38 148" ${s}/>
+        <path d="M75 145 Q82 150 88 148" ${s}/>
+        <path d="M205 145 Q196 150 188 148" ${s}/>
+        <path d="M225 145 Q232 150 238 148" ${s}/>
+        <!-- Tail -->
+        <path d="M220 76 Q240 55 245 40" ${s}/>
+      </svg>`,
+    'hip-hinge': `
+      <svg viewBox="0 0 180 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head -->
+        <circle cx="130" cy="50" r="16" ${s}/>
+        <!-- Torso angled forward ~45° -->
+        <path d="M120 64 Q100 90 80 120" ${s}/>
+        <!-- Arms hang -->
+        <path d="M108 75 Q95 105 88 130" ${s}/>
+        <path d="M115 80 Q105 110 100 135" ${s}/>
+        <!-- Hips pushed back -->
+        <path d="M80 120 Q70 128 58 122" ${s}/>
+        <!-- Thighs — soft bend -->
+        <path d="M64 124 Q60 175 62 230" ${s}/>
+        <path d="M54 122 Q50 172 52 230" ${s}/>
+        <!-- Shins -->
+        <path d="M62 230 Q63 260 64 280" ${s}/>
+        <path d="M52 230 Q51 260 50 280" ${s}/>
+        <!-- Feet -->
+        <path d="M64 280 Q72 285 80 283" ${s}/>
+        <path d="M50 280 Q42 285 34 283" ${s}/>
+      </svg>`
+  };
+  return ghosts[mvId] || ghosts['forward-fold'];
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const state = {
+  mvId: null,
+  photos: [],
+  facingMode: 'user',
+  poseReady: false,
+  poseDetected: false,
+  countingDown: false,
+  countdownTimer: null,
+  countdownStart: null,
+  cueIndex: 0,
+  cueTimer: null,
+  ghostVisible: true,
+  stream: null
+};
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  // Read movement ID from URL param
+  const params = new URLSearchParams(window.location.search);
+  state.mvId = params.get('mv') || 'forward-fold';
+  const mv = MOVEMENT_DATA[state.mvId];
+
+  document.getElementById('topIcon').textContent = mv.icon;
+  document.getElementById('topName').textContent = mv.name;
+  document.getElementById('ghostOverlay').innerHTML = mv.ghost;
+
+  startCamera();
+});
+
+// ══════════════════════════════════════════════
+// CAMERA
+// ══════════════════════════════════════════════
+async function startCamera() {
+  setLoading('Starting camera…');
+  try {
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+    state.stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: state.facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+    const video = document.getElementById('inputVideo');
+    video.srcObject = state.stream;
+    await video.play();
+
+    // Size canvas to match video
+    video.addEventListener('loadedmetadata', () => {
+      const c = document.getElementById('poseCanvas');
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+    });
+
+    setLoading('Loading pose model…');
+    initPose();
+  } catch(e) {
+    document.getElementById('loadingMsg').textContent = 'Camera access denied. Please allow camera and reload.';
+  }
+}
+
+async function flipCamera() {
+  state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
+  await startCamera();
+}
+
+// ══════════════════════════════════════════════
+// MEDIAPIPE POSE
+// ══════════════════════════════════════════════
+let poseInstance = null;
+
+function initPose() {
+  poseInstance = new Pose({
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+  });
+
+  poseInstance.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55
+  });
+
+  poseInstance.onResults(onPoseResults);
+
+  const camera = new Camera(document.getElementById('inputVideo'), {
+    onFrame: async () => {
+      await poseInstance.send({ image: document.getElementById('inputVideo') });
+    },
+    width: 1280,
+    height: 720
+  });
+
+  camera.start().then(() => {
+    hideLoading();
+    setPoseStatus('no-pose', 'No pose detected');
+    startCueCycle();
+  }).catch(() => {
+    hideLoading();
+    setPoseStatus('no-pose', 'Pose model unavailable');
+  });
+}
+
+// ── Skeleton color config ──
+const SKELETON_COLOR = 'rgba(93,232,160,0.85)';
+const JOINT_COLOR    = 'rgba(93,232,160,1)';
+const JOINT_FILL     = 'rgba(0,0,0,0.6)';
+
+// Key landmark connections to draw (subset of full pose for cleaner look)
+const CONNECTIONS = [
+  // Face
+  [0, 4], [0, 1],
+  // Shoulders
+  [11, 12],
+  // Left arm
+  [11, 13], [13, 15],
+  // Right arm
+  [12, 14], [14, 16],
+  // Torso
+  [11, 23], [12, 24], [23, 24],
+  // Left leg
+  [23, 25], [25, 27], [27, 31],
+  // Right leg
+  [24, 26], [26, 28], [28, 32],
+];
+
+function onPoseResults(results) {
+  const canvas = document.getElementById('poseCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+    onNoPose();
+    return;
+  }
+
+  const lm = results.poseLandmarks;
+
+  // Check pose confidence (use shoulder visibility as proxy)
+  const confidence = (lm[11]?.visibility || 0) + (lm[12]?.visibility || 0);
+  if (confidence < 0.8) {
+    onNoPose();
+    return;
+  }
+
+  onPoseFound();
+
+  // Draw connections
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = SKELETON_COLOR;
+  ctx.lineCap = 'round';
+
+  CONNECTIONS.forEach(([a, b]) => {
+    const pa = lm[a], pb = lm[b];
+    if (!pa || !pb) return;
+    if ((pa.visibility || 0) < 0.3 || (pb.visibility || 0) < 0.3) return;
+    ctx.beginPath();
+    // Canvas is mirrored via CSS so we draw normally
+    ctx.moveTo(pa.x * canvas.width, pa.y * canvas.height);
+    ctx.lineTo(pb.x * canvas.width, pb.y * canvas.height);
+    ctx.stroke();
+  });
+
+  // Draw joints
+  lm.forEach((pt, i) => {
+    if (!pt || (pt.visibility || 0) < 0.35) return;
+    // Only draw key joints
+    if (![0,11,12,13,14,15,16,23,24,25,26,27,28,31,32].includes(i)) return;
+    const x = pt.x * canvas.width;
+    const y = pt.y * canvas.height;
+    const r = i === 0 ? 6 : 4;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = JOINT_FILL;
+    ctx.fill();
+    ctx.strokeStyle = JOINT_COLOR;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function onPoseFound() {
+  if (!state.poseDetected) {
+    state.poseDetected = true;
+    setPoseStatus('detected', 'Pose detected — hold still');
+    document.getElementById('ghostOverlay').classList.add('dim');
+    document.getElementById('shutterBtn').classList.add('armed');
+    if (!state.countingDown && state.photos.length < MAX_PHOTOS) {
+      startCountdown();
+    }
+  }
+}
+
+function onNoPose() {
+  if (state.poseDetected) {
+    state.poseDetected = false;
+    setPoseStatus('no-pose', 'Step into frame');
+    document.getElementById('ghostOverlay').classList.remove('dim');
+    document.getElementById('shutterBtn').classList.remove('armed');
+    cancelCountdown();
+  }
+}
+
+// ══════════════════════════════════════════════
+// COUNTDOWN
+// ══════════════════════════════════════════════
+function startCountdown() {
+  if (state.countingDown) return;
+  state.countingDown = true;
+  state.countdownStart = performance.now();
+
+  const wrap = document.getElementById('countdownWrap');
+  wrap.classList.add('visible');
+
+  const ring = document.getElementById('ringFill');
+  ring.style.strokeDasharray = CIRCUMFERENCE;
+
+  animateCountdown();
+}
+
+function animateCountdown() {
+  if (!state.countingDown) return;
+
+  const elapsed = (performance.now() - state.countdownStart) / 1000;
+  const remaining = Math.max(0, COUNTDOWN_SECS - elapsed);
+  const progress = elapsed / COUNTDOWN_SECS;
+
+  document.getElementById('countdownNum').textContent = Math.ceil(remaining) || 1;
+  document.getElementById('ringFill').style.strokeDashoffset =
+    CIRCUMFERENCE * (1 - progress);
+
+  if (elapsed >= COUNTDOWN_SECS) {
+    finishCountdown();
+    return;
+  }
+
+  requestAnimationFrame(animateCountdown);
+}
+
+function finishCountdown() {
+  state.countingDown = false;
+  document.getElementById('countdownWrap').classList.remove('visible');
+  document.getElementById('ringFill').style.strokeDashoffset = CIRCUMFERENCE;
+  captureFrame();
+}
+
+function cancelCountdown() {
+  if (!state.countingDown) return;
+  state.countingDown = false;
+  document.getElementById('countdownWrap').classList.remove('visible');
+  document.getElementById('ringFill').style.strokeDashoffset = CIRCUMFERENCE;
+}
+
+// ══════════════════════════════════════════════
+// CAPTURE
+// ══════════════════════════════════════════════
+function captureFrame() {
+  const video = document.getElementById('inputVideo');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  // Mirror if front camera
+  if (state.facingMode === 'user') {
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0);
+  } else {
+    ctx.drawImage(video, 0, 0);
+  }
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+  const labels = ['Attempt 1','Attempt 2','Attempt 3','Attempt 4'];
+  state.photos.push({ dataUrl, label: labels[state.photos.length] || 'Frame' });
+
+  // Flash
+  const flash = document.getElementById('flashEl');
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 180);
+
+  updateUI();
+
+  // If more photos wanted, reset for another
+  if (state.photos.length < MAX_PHOTOS) {
+    state.poseDetected = false; // force re-detection for next capture
+    setPoseStatus('no-pose', 'Move to next position');
+    document.getElementById('shutterBtn').classList.remove('armed');
+    setTimeout(() => {
+      setPoseStatus('no-pose', 'Hold still for next capture');
+    }, 1500);
+  } else {
+    setPoseStatus('detected', 'All captures done!');
+  }
+}
+
+function manualCapture() {
+  cancelCountdown();
+  captureFrame();
+}
+
+function updateUI() {
+  const n = state.photos.length;
+
+  // Counter badge
+  const counter = document.getElementById('photoCounter');
+  counter.textContent = n;
+  counter.style.display = n > 0 ? 'flex' : 'none';
+
+  // Thumbnails
+  const strip = document.getElementById('thumbStrip');
+  strip.innerHTML = '';
+  state.photos.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'thumb';
+    d.innerHTML = `<img src="${p.dataUrl}">`;
+    strip.appendChild(d);
+  });
+
+  // Done button
+  const doneBtn = document.getElementById('doneBtn');
+  if (n >= 1) {
+    doneBtn.textContent = `Use ${n} photo${n > 1 ? 's' : ''} ✓`;
+    doneBtn.classList.add('visible');
+  }
+}
+
+// ══════════════════════════════════════════════
+// CUE CYCLE
+// ══════════════════════════════════════════════
+function startCueCycle() {
+  const mv = MOVEMENT_DATA[state.mvId];
+  const chip = document.getElementById('cueChip');
+
+  function showCue(idx) {
+    chip.classList.add('hidden');
+    setTimeout(() => {
+      chip.textContent = mv.cues[idx % mv.cues.length];
+      chip.classList.remove('hidden');
+    }, 400);
+  }
+
+  showCue(0);
+  state.cueTimer = setInterval(() => {
+    state.cueIndex++;
+    showCue(state.cueIndex);
+  }, 4000);
+}
+
+// ══════════════════════════════════════════════
+// GHOST TOGGLE
+// ══════════════════════════════════════════════
+function toggleGhost() {
+  state.ghostVisible = !state.ghostVisible;
+  document.getElementById('ghostOverlay').style.display =
+    state.ghostVisible ? 'flex' : 'none';
+  document.getElementById('ghostBtn').style.opacity =
+    state.ghostVisible ? '1' : '0.4';
+}
+
+// ══════════════════════════════════════════════
+// STATUS HELPERS
+// ══════════════════════════════════════════════
+function setPoseStatus(type, text) {
+  const el = document.getElementById('poseStatus');
+  el.className = 'pose-status ' + type;
+  document.getElementById('poseStatusText').textContent = text;
+}
+
+function setLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════════
+// RETURN TO MAIN APP
+// ══════════════════════════════════════════════
+function finishAndReturn() {
+  // Store photos in sessionStorage for the main page to pick up
+  sessionStorage.setItem('cameraPhotos', JSON.stringify(state.photos));
+  cleanup();
+  window.history.back();
+}
+
+function cancelAndReturn() {
+  cleanup();
+  window.history.back();
+}
+
+function cleanup() {
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  clearInterval(state.cueTimer);
+  cancelCountdown();
+  if (poseInstance) poseInstance.close();
+}
+
+window.addEventListener('pagehide', cleanup);
+</script>
+</body>
+</html>
