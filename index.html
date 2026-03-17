@@ -916,7 +916,7 @@ Return ONLY valid JSON, no markdown:
 {"movementFindings":[{"observation":"...","compensation":"...","rootCause":"..."}],"patternSummary":"2-3 sentences","priorityAreas":["..."],"releases":[{"name":"...","type":"...","targets":["..."],"duration":"...","frequency":"...","whyThisHelps":"...","steps":["..."],"cueToFeel":"..."}],"reassessmentNote":"..."}`});
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://chiabot.nebgo.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content}]})
     });
@@ -994,21 +994,23 @@ function restartApp(){
 async function deployToGitHub(){
   const key = prompt('Deploy key:');
   if (!key) return;
-  const btn=document.getElementById('deployBtn');
-  btn.textContent='⏳ Deploying…';btn.disabled=true;
-  try{
-    const res=await fetch('https://YOUR-WORKER.workers.dev/deploy',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Deploy-Key':key},
-      body:JSON.stringify({
-        message:'HSS v0.7 deploy',
-        files:[{path:'index.html',content:document.documentElement.outerHTML}]
+  const btn = document.getElementById('deployBtn');
+  btn.textContent = '⏳ Deploying…'; btn.disabled = true;
+  try {
+    const res = await fetch('https://chiabot.nebgo.workers.dev/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Deploy-Key': key },
+      body: JSON.stringify({
+        message: 'BodyLab deploy — ' + new Date().toISOString(),
+        files: [{ path: 'index.html', content: document.documentElement.outerHTML }]
       })
     });
-    const data=await res.json();
-    btn.textContent=data.ok?'✅ Deployed!':'❌ Failed';
-  }catch(e){btn.textContent='❌ '+e.message;}
-  setTimeout(()=>{btn.textContent='🚀 Deploy';btn.disabled=false;},3000);
+    const data = await res.json();
+    btn.textContent = data.ok ? '✅ Deployed!' : '❌ Failed';
+  } catch(e) {
+    btn.textContent = '❌ ' + e.message;
+  }
+  setTimeout(() => { btn.textContent = '🚀 Deploy'; btn.disabled = false; }, 3000);
 }
 </script>
 </body>
