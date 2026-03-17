@@ -3,272 +3,311 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Movement Assessment</title>
+<title>BodyLab</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600;700&display=swap');
 
-:root {
-  --ink: #1a1a2e;
-  --paper: #f5f0e8;
-  --cream: #ede8dc;
-  --sage: #5a7a5a;
-  --sage-light: #8aaa8a;
-  --rust: #c4622d;
-  --gold: #c9a84c;
-  --muted: #8a8478;
-  --border: #d4cec0;
-  --card: #faf7f2;
-  --radius: 18px;
+/* ── Reset & tokens ── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --ink:#1a1a2e;--paper:#f5f0e8;--cream:#ede8dc;
+  --sage:#5a7a5a;--sage-light:#8aaa8a;
+  --rust:#c4622d;--gold:#c9a84c;
+  --muted:#8a8478;--border:#d4cec0;--card:#faf7f2;
+  --green:#5de8a0;--radius:18px;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* ── App shell ── */
+body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
+.app{max-width:430px;margin:0 auto;padding:0 0 80px}
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: 'Outfit', sans-serif;
-  min-height: 100vh;
-  overflow-x: hidden;
+/* ── Top bar ── */
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0}
+.brand{font-family:'Playfair Display',serif;font-size:15px;color:var(--sage)}
+.phase-badge{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);background:var(--cream);border:1px solid var(--border);border-radius:100px;padding:4px 12px}
+
+/* ── Progress ── */
+.progress-track{margin:18px 20px 0;height:2px;background:var(--border);border-radius:1px;position:relative}
+.progress-fill{height:100%;background:var(--sage);border-radius:1px;transition:width .5s cubic-bezier(.4,0,.2,1);position:relative}
+.progress-fill::after{content:'';position:absolute;right:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--sage)}
+.progress-steps{display:flex;justify-content:space-between;margin-top:8px;padding:0 2px}
+.progress-steps span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:500}
+.progress-steps span.done{color:var(--sage)}
+
+/* ── Sections ── */
+.section{display:none;padding:0 20px}
+.section.active{display:block;animation:reveal .45s ease both}
+@keyframes reveal{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Typography helpers ── */
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--sage);font-weight:600;margin-bottom:14px}
+.eyebrow.rust{color:var(--rust)}
+.serif-title{font-family:'Playfair Display',serif;line-height:1.15}
+.serif-title em{font-style:italic;color:var(--sage)}
+
+/* ── Movement cards ── */
+.movement-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.movement-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:15px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .22s}
+.movement-card:hover{border-color:var(--sage);transform:translateX(3px)}
+.movement-card.selected{border-color:var(--sage);background:rgba(90,122,90,.06)}
+.mv-icon{width:48px;height:48px;border-radius:13px;background:var(--cream);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.mv-info{flex:1}
+.mv-name{font-weight:600;font-size:14px;margin-bottom:2px}
+.mv-desc{font-size:12px;color:var(--muted);line-height:1.4}
+.mv-tags{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.mv-tag{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--cream);color:var(--muted);border:1px solid var(--border);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.mv-check{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s}
+.movement-card.selected .mv-check{background:var(--sage);border-color:var(--sage);color:#fff}
+
+/* ── Pose guide ── */
+.pose-visual{background:var(--cream);border:1.5px solid var(--border);border-radius:var(--radius);padding:24px 20px;text-align:center;margin-bottom:16px}
+.pose-figure{font-size:72px;line-height:1;display:block;margin-bottom:10px}
+.cue-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.cue-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;opacity:0;animation:reveal .4s ease forwards}
+.cue-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);flex-shrink:0;margin-top:6px}
+
+/* ── Thumbnail strip ── */
+.captured-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+.cap-thumb{flex-shrink:0;width:68px;height:92px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);position:relative}
+.cap-thumb img{width:100%;height:100%;object-fit:cover}
+.cap-thumb-label{position:absolute;bottom:0;left:0;right:0;background:rgba(26,26,46,.75);font-size:9px;text-align:center;padding:3px;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:.05em}
+
+/* ── Feedback ── */
+.feel-block{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+.feel-q{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px;line-height:1.5}
+.feel-q em{color:var(--sage);font-style:italic}
+.area-chips{display:flex;flex-wrap:wrap;gap:7px}
+.area-chip{font-size:12px;padding:6px 13px;border-radius:100px;border:1.5px solid var(--border);color:var(--muted);cursor:pointer;transition:all .2s;font-weight:500;background:transparent;font-family:inherit}
+.area-chip:hover{border-color:var(--sage);color:var(--ink)}
+.area-chip.active{background:var(--sage);border-color:var(--sage);color:#fff}
+.sensation-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.sensation-btn{border:1.5px solid var(--border);border-radius:10px;padding:10px 11px;font-family:inherit;font-size:12px;font-weight:500;color:var(--muted);background:transparent;cursor:pointer;text-align:left;transition:all .2s;line-height:1.3}
+.sensation-btn:hover{border-color:var(--sage);color:var(--ink)}
+.sensation-btn.selected{border-color:var(--sage);background:rgba(90,122,90,.08);color:var(--sage)}
+.dot-scale{display:flex;gap:6px}
+.dot{flex:1;height:8px;border-radius:4px;background:var(--border);cursor:pointer;transition:background .2s}
+.dot.f1{background:var(--sage-light)}.dot.f2{background:var(--sage)}.dot.f3{background:var(--gold)}.dot.f4{background:var(--rust)}
+.scale-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--muted)}
+
+/* ── Results ── */
+.result-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;animation:reveal .5s ease both}
+.rc-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:10px}
+.rc-label.sage{color:var(--sage)}.rc-label.rust{color:var(--rust)}.rc-label.gold{color:var(--gold)}
+.stretch-item{background:var(--cream);border:1.5px solid var(--border);border-radius:14px;padding:18px;margin-bottom:10px;animation:reveal .5s ease both}
+.si-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.si-num{width:30px;height:30px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.si-name{font-family:'Playfair Display',serif;font-size:17px;line-height:1.2;flex:1}
+.si-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.si-badge{font-size:11px;padding:3px 10px;border-radius:100px;font-weight:500}
+.si-badge.green{background:rgba(90,122,90,.1);color:var(--sage);border:1px solid rgba(90,122,90,.2)}
+.si-badge.amber{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.25)}
+.si-desc{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:10px}
+.si-steps{list-style:none;display:flex;flex-direction:column;gap:5px;counter-reset:st}
+.si-steps li{counter-increment:st;display:flex;gap:9px;font-size:12px;color:var(--ink);line-height:1.5;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.si-steps li:last-child{border-bottom:none;padding-bottom:0}
+.si-steps li::before{content:counter(st);flex-shrink:0;width:18px;height:18px;border-radius:50%;background:rgba(90,122,90,.1);color:var(--sage);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px}
+
+/* ── Buttons ── */
+.btn{width:100%;padding:15px 24px;border-radius:14px;border:none;font-family:'Outfit',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .22s}
+.btn-primary{background:var(--ink);color:var(--paper)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(26,26,46,.2)}
+.btn-primary:disabled{opacity:.35;transform:none;box-shadow:none;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--muted);margin-top:10px}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+.btn-sage{background:var(--sage);color:#fff}
+.btn-sage:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(90,122,90,.3)}
+.btn-sage:disabled{opacity:.4;transform:none;box-shadow:none;cursor:not-allowed}
+.mt14{margin-top:14px}.mt20{margin-top:20px}
+.disclaimer{font-size:11px;color:var(--muted);text-align:center;line-height:1.6;padding:14px 10px;border-top:1px solid var(--border);margin-top:16px}
+.loading-ring{width:50px;height:50px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--sage);margin:28px auto 14px;animation:spin 1.1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-msg{text-align:center;font-size:13px;color:var(--muted);padding:0 30px;line-height:1.6;min-height:42px}
+
+/* ══════════════════════════════════════════
+   CAMERA OVERLAY — fullscreen, z above app
+══════════════════════════════════════════ */
+#camOverlay{
+  position:fixed;inset:0;z-index:1000;
+  background:#000;
+  display:none;
+  flex-direction:column;
 }
+#camOverlay.open{display:flex}
 
-.app { max-width: 430px; margin: 0 auto; padding: 0 0 60px; }
+.cam-video-wrap{position:relative;flex:1;overflow:hidden}
+#camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#camCanvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .08s}
+#camFlash.flash{opacity:.85}
 
-.top-bar { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 0; }
-.brand { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--sage); }
-.phase-badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); background: var(--cream); border: 1px solid var(--border); border-radius: 100px; padding: 4px 12px; }
+/* Ghost silhouette */
+#camGhost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .4s}
+#camGhost svg{height:85%;width:auto}
+#camGhost.dim{opacity:.12}
 
-.progress-track { margin: 18px 20px 0; height: 2px; background: var(--border); border-radius: 1px; position: relative; }
-.progress-fill { height: 100%; background: var(--sage); border-radius: 1px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); position: relative; }
-.progress-fill::after { content: ''; position: absolute; right: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--sage); box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--sage); }
-.progress-steps { display: flex; justify-content: space-between; margin-top: 8px; padding: 0 2px; }
-.progress-steps span { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
-.progress-steps span.done { color: var(--sage); }
+/* Top bar */
+.cam-top{position:absolute;top:0;left:0;right:0;padding:16px 16px 10px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(0,0,0,.65),transparent);z-index:2}
+.cam-move-label{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);display:flex;align-items:center;gap:8px}
+.cam-close-btn{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
-.section { display: none; padding: 0 20px; }
-.section.active { display: block; animation: reveal 0.45s ease both; }
-@keyframes reveal { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+/* Cue chip */
+.cam-cue{position:absolute;top:68px;left:0;right:0;display:flex;justify-content:center;z-index:2;pointer-events:none}
+.cam-cue-chip{background:rgba(0,0,0,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:7px 18px;font-size:13px;font-weight:500;color:rgba(255,255,255,.9);max-width:290px;text-align:center;transition:opacity .4s,transform .4s}
+.cam-cue-chip.hide{opacity:0;transform:translateY(-6px)}
 
-/* Hero */
-.hero-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); font-weight: 600; margin-bottom: 14px; }
-.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 8vw, 40px); line-height: 1.15; margin-bottom: 14px; }
-.hero-title em { font-style: italic; color: var(--sage); }
-.hero-sub { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+/* Pose status pill */
+.cam-status{position:absolute;top:108px;left:50%;transform:translateX(-50%);z-index:2;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);border-radius:100px;padding:5px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.8);letter-spacing:.04em;transition:all .3s;white-space:nowrap}
+.cam-status-dot{width:8px;height:8px;border-radius:50%;background:#aaa;transition:background .3s;flex-shrink:0}
+.cam-status.loading .cam-status-dot{background:var(--gold);animation:blink 1s ease infinite}
+.cam-status.detected .cam-status-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.cam-status.noPose .cam-status-dot{background:var(--rust)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* Movement cards */
-.movement-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
-.movement-card { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 15px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.22s; }
-.movement-card:hover { border-color: var(--sage); transform: translateX(3px); }
-.movement-card.selected { border-color: var(--sage); background: rgba(90,122,90,0.06); }
-.mv-icon { width: 48px; height: 48px; border-radius: 13px; background: var(--cream); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
-.mv-info { flex: 1; }
-.mv-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
-.mv-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.mv-tags { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
-.mv-tag { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: var(--cream); color: var(--muted); border: 1px solid var(--border); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-.mv-check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; transition: all 0.2s; }
-.movement-card.selected .mv-check { background: var(--sage); border-color: var(--sage); color: white; }
+/* Countdown ring */
+.cam-countdown{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);z-index:2;display:none;flex-direction:column;align-items:center;gap:8px}
+.cam-countdown.show{display:flex}
+.cd-ring-wrap{position:relative;width:80px;height:80px}
+.cd-ring-wrap svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.cd-track{fill:none;stroke:rgba(255,255,255,.15);stroke-width:4}
+.cd-fill{fill:none;stroke:var(--green);stroke-width:4;stroke-linecap:round;stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset .08s linear}
+.cd-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff}
+.cd-label{font-size:11px;color:rgba(255,255,255,.7);text-align:center;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
 
-/* Pose guide */
-.pose-visual { background: var(--cream); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 24px 20px; text-align: center; margin-bottom: 16px; }
-.pose-figure { font-size: 72px; line-height: 1; display: block; margin-bottom: 10px; }
-.cue-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-.cue-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; opacity: 0; animation: reveal 0.4s ease forwards; }
-.cue-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); flex-shrink: 0; margin-top: 6px; }
+/* Thumb strip */
+.cam-thumbs{position:absolute;bottom:120px;left:0;right:0;display:flex;gap:8px;justify-content:center;padding:0 16px;z-index:2;pointer-events:none}
+.cam-thumb{width:52px;height:70px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,.4);flex-shrink:0;animation:popIn .25s ease both}
+.cam-thumb img{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+@keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
 
-/* Camera */
-.camera-area { position: relative; border-radius: var(--radius); overflow: hidden; background: #0d0e10; aspect-ratio: 9/16; max-height: 400px; border: 1.5px solid var(--border); margin-bottom: 14px; }
-#videoEl { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
-#canvasEl { display: none; }
-.cam-guide { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-.cam-guide-inner { width: 60%; height: 85%; border: 1.5px dashed rgba(255,255,255,0.22); border-radius: 60px 60px 30px 30px; }
-.cam-top-bar { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; }
-.cam-pose-chip { background: rgba(13,14,16,0.75); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.12); border-radius: 100px; padding: 5px 12px; font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 500; }
-.cam-flip-btn { width: 34px; height: 34px; border-radius: 50%; background: rgba(13,14,16,0.75); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.12); color: white; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.cam-shutter-bar { position: absolute; bottom: 18px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 20px; }
-.cam-photo-count { font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 500; min-width: 46px; text-align: center; }
-.btn-shutter { width: 62px; height: 62px; border-radius: 50%; background: white; border: 4px solid rgba(255,255,255,0.3); cursor: pointer; position: relative; transition: transform 0.15s; flex-shrink: 0; }
-.btn-shutter:hover { transform: scale(1.05); }
-.btn-shutter::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: rgba(255,255,255,0.9); }
-.camera-placeholder { aspect-ratio: 9/16; max-height: 400px; border-radius: var(--radius); border: 2px dashed var(--border); background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; cursor: pointer; transition: border-color 0.2s; margin-bottom: 14px; }
-.camera-placeholder:hover { border-color: var(--sage); }
-.cam-ph-icon { width: 60px; height: 60px; border-radius: 50%; background: rgba(90,122,90,0.1); border: 1.5px solid rgba(90,122,90,0.25); display: flex; align-items: center; justify-content: center; font-size: 26px; }
-.camera-placeholder p { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
+/* Use-photos button */
+#camDoneBtn{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);z-index:3;background:var(--green);color:#0a1a0a;border:none;border-radius:100px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;display:none;box-shadow:0 4px 20px rgba(93,232,160,.4);font-family:inherit;white-space:nowrap}
+#camDoneBtn.show{display:block;animation:slideUp .3s ease both}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(10px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
 
-.captured-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
-.cap-thumb { flex-shrink: 0; width: 68px; height: 92px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--border); position: relative; }
-.cap-thumb img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-.cap-thumb-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(26,26,46,0.75); font-size: 9px; text-align: center; padding: 3px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 0.05em; }
+/* Bottom controls */
+.cam-bottom{position:absolute;bottom:0;left:0;right:0;padding:20px 24px 36px;background:linear-gradient(to top,rgba(0,0,0,.75),transparent);z-index:2;display:flex;align-items:center;justify-content:space-between}
+.cam-side-btn{width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(10px);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.cam-side-btn:hover{background:rgba(255,255,255,.15)}
+.cam-shutter-wrap{position:relative}
+.cam-shutter{width:72px;height:72px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.35);cursor:pointer;position:relative;transition:transform .15s,box-shadow .15s}
+.cam-shutter:hover{transform:scale(1.05)}
+.cam-shutter::after{content:'';position:absolute;inset:5px;border-radius:50%;background:rgba(255,255,255,.9)}
+.cam-shutter.armed{border-color:var(--green);box-shadow:0 0 0 3px rgba(93,232,160,.35)}
+.cam-photo-count{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--green);color:#0a0a0a;font-size:11px;font-weight:800;display:none;align-items:center;justify-content:center}
 
-/* Feedback */
-.feel-block { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; }
-.feel-q { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px; line-height: 1.5; }
-.feel-q em { color: var(--sage); font-style: italic; }
-.area-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.area-chip { font-size: 12px; padding: 6px 13px; border-radius: 100px; border: 1.5px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.2s; font-weight: 500; background: transparent; font-family: inherit; }
-.area-chip:hover { border-color: var(--sage); color: var(--ink); }
-.area-chip.active { background: var(--sage); border-color: var(--sage); color: white; }
-.sensation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.sensation-btn { border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 11px; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--muted); background: transparent; cursor: pointer; text-align: left; transition: all 0.2s; line-height: 1.3; }
-.sensation-btn:hover { border-color: var(--sage); color: var(--ink); }
-.sensation-btn.selected { border-color: var(--sage); background: rgba(90,122,90,0.08); color: var(--sage); }
-.dot-scale { display: flex; gap: 6px; }
-.dot { flex: 1; height: 8px; border-radius: 4px; background: var(--border); cursor: pointer; transition: background 0.2s; }
-.dot.f1 { background: var(--sage-light); }
-.dot.f2 { background: var(--sage); }
-.dot.f3 { background: var(--gold); }
-.dot.f4 { background: var(--rust); }
-.scale-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--muted); }
+/* Loading overlay inside camera */
+#camLoading{position:absolute;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5;gap:14px;color:#fff}
+#camLoading.hide{display:none}
+.cam-loading-ring{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:var(--green);animation:spin 1s linear infinite}
 
-/* Results */
-.result-card { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; animation: reveal 0.5s ease both; }
-.rc-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px; }
-.rc-label.sage { color: var(--sage); }
-.rc-label.rust { color: var(--rust); }
-.rc-label.gold { color: var(--gold); }
-.stretch-item { background: var(--cream); border: 1.5px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 10px; animation: reveal 0.5s ease both; }
-.si-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-.si-num { width: 30px; height: 30px; border-radius: 50%; background: var(--sage); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.si-name { font-family: 'Playfair Display', serif; font-size: 17px; line-height: 1.2; flex: 1; }
-.si-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.si-badge { font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 500; }
-.si-badge.green { background: rgba(90,122,90,0.1); color: var(--sage); border: 1px solid rgba(90,122,90,0.2); }
-.si-badge.amber { background: rgba(201,168,76,0.1); color: var(--gold); border: 1px solid rgba(201,168,76,0.25); }
-.si-desc { font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
-.si-steps { list-style: none; display: flex; flex-direction: column; gap: 5px; counter-reset: st; }
-.si-steps li { counter-increment: st; display: flex; gap: 9px; font-size: 12px; color: var(--ink); line-height: 1.5; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
-.si-steps li:last-child { border-bottom: none; padding-bottom: 0; }
-.si-steps li::before { content: counter(st); flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: rgba(90,122,90,0.1); color: var(--sage); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-top: 1px; }
-
-/* Buttons */
-.btn { width: 100%; padding: 15px 24px; border-radius: 14px; border: none; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.22s; }
-.btn-primary { background: var(--ink); color: var(--paper); }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(26,26,46,0.2); }
-.btn-primary:disabled { opacity: 0.35; transform: none; box-shadow: none; cursor: not-allowed; }
-.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--muted); margin-top: 10px; }
-.btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
-.btn-sage { background: var(--sage); color: white; }
-.btn-sage:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(90,122,90,0.3); }
-.btn-sage:disabled { opacity: 0.4; transform: none; box-shadow: none; cursor: not-allowed; }
-
-.mt8 { margin-top: 8px; }
-.mt14 { margin-top: 14px; }
-.mt20 { margin-top: 20px; }
-.disclaimer { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.6; padding: 14px 10px; border-top: 1px solid var(--border); margin-top: 16px; }
-.loading-ring { width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--sage); margin: 28px auto 14px; animation: spin 1.1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-msg { text-align: center; font-size: 13px; color: var(--muted); padding: 0 30px; line-height: 1.6; min-height: 42px; }
+/* ── Deploy button ── */
+#deployBtn{position:fixed;bottom:20px;right:16px;z-index:500;background:var(--ink);color:var(--paper);border:none;border-radius:100px;padding:10px 18px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:inherit;display:flex;align-items:center;gap:6px;transition:all .2s}
+#deployBtn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
 </style>
 </head>
 <body>
+
+<!-- ════════════════════════════════════
+     MAIN APP
+════════════════════════════════════ -->
 <div class="app">
 
   <div class="top-bar">
-    <div class="brand">Body<em style="font-style:italic;">Lab</em> <span style="font-size:10px; color:var(--muted); font-family:'Outfit',sans-serif; font-weight:500; letter-spacing:0.05em;">v0.6</span></div>
+    <div class="brand">Body<em style="font-style:italic">Lab</em>
+      <span style="font-size:10px;color:var(--muted);font-family:'Outfit',sans-serif;font-weight:500;letter-spacing:.05em">v0.7</span>
+    </div>
     <div class="phase-badge" id="phaseBadge">Select Movement</div>
   </div>
-  <div style="padding:0 20px;">
-    <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:0%"></div>
-    </div>
+  <div style="padding:0 20px">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <div class="progress-steps">
-      <span id="ps1">Select</span>
-      <span id="ps2">Prepare</span>
-      <span id="ps3">Record</span>
-      <span id="ps4">Feedback</span>
-      <span id="ps5">Plan</span>
+      <span id="ps1">Select</span><span id="ps2">Prepare</span>
+      <span id="ps3">Record</span><span id="ps4">Feedback</span><span id="ps5">Plan</span>
     </div>
   </div>
 
-  <!-- ══ STEP 1: Select movement ══ -->
+  <!-- ── Step 1: Select ── -->
   <div id="step1" class="section active">
-    <div style="padding: 32px 0 20px;">
-      <div class="hero-eyebrow">Movement-based assessment</div>
-      <h1 class="hero-title">How does your<br>body <em>move</em> today?</h1>
-      <p class="hero-sub">Choose a movement test. Perform it on camera. We'll identify your specific restrictions and build a personalised release plan.</p>
+    <div style="padding:32px 0 20px">
+      <div class="eyebrow">Movement-based assessment</div>
+      <h1 class="serif-title" style="font-size:clamp(28px,8vw,40px);margin-bottom:14px">How does your<br>body <em>move</em> today?</h1>
+      <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:28px">Choose a movement test. Perform it on camera. We'll identify your specific restrictions and build a personalised release plan.</p>
     </div>
     <div class="movement-grid" id="movementGrid"></div>
     <button class="btn btn-primary" id="toStep2Btn" onclick="goStep2()" disabled>Prepare this movement →</button>
   </div>
 
-  <!-- ══ STEP 2: Pose guide ══ -->
+  <!-- ── Step 2: Prepare ── -->
   <div id="step2" class="section">
-    <div style="padding: 28px 0 18px; text-align:center;">
-      <div class="hero-eyebrow">Prepare yourself</div>
-      <h2 style="font-family:'Playfair Display',serif; font-size:24px; margin-bottom:8px;" id="poseTitle"></h2>
-      <p style="font-size:13px; color:var(--muted); line-height:1.6;" id="poseSub"></p>
+    <div style="padding:28px 0 18px;text-align:center">
+      <div class="eyebrow">Prepare yourself</div>
+      <h2 class="serif-title" style="font-size:24px;margin-bottom:8px" id="poseTitle"></h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseSub"></p>
     </div>
     <div class="pose-visual">
       <span class="pose-figure" id="poseFigure"></span>
-      <p style="font-size:13px; color:var(--muted); line-height:1.6;" id="poseNote"></p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseNote"></p>
     </div>
     <ul class="cue-list" id="cueList"></ul>
     <button class="btn btn-primary" onclick="goStep3()">I'm ready — open camera →</button>
     <button class="btn btn-ghost" onclick="goStep1()">← Change movement</button>
   </div>
 
-  <!-- ══ STEP 3: Perform + describe ══ -->
+  <!-- ── Step 3: Record ── -->
   <div id="step3" class="section">
-    <div style="padding:22px 0 16px; text-align:center;">
-      <div class="hero-eyebrow" style="color:var(--rust);">Perform the movement</div>
-      <h2 style="font-family:'Playfair Display',serif; font-size:21px; margin-bottom:6px;" id="step3MoveName"></h2>
-      <p style="font-size:12px; color:var(--muted); line-height:1.6;">Use the live camera for guided capture, or add a photo manually.</p>
+    <div style="padding:22px 0 16px;text-align:center">
+      <div class="eyebrow rust">Perform the movement</div>
+      <h2 class="serif-title" style="font-size:21px;margin-bottom:6px" id="step3MoveName"></h2>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6">Use the guided camera, or add a photo manually.</p>
     </div>
 
-    <!-- Primary: live camera launcher -->
-    <button class="btn btn-primary" style="margin-bottom:10px; font-size:15px; padding:18px;" id="launchCameraBtn" onclick="launchCamera()">
+    <button class="btn btn-primary" style="margin-bottom:10px;font-size:15px;padding:18px" onclick="openCamera()">
       📷 Open guided camera
     </button>
 
-    <!-- Photos returned from camera.html -->
-    <div id="capturedWrap" style="display:none; margin-bottom:14px;">
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:600; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+    <div id="capturedWrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span>Captured photos</span>
-        <span style="cursor:pointer; color:var(--rust); font-size:11px;" onclick="clearPhotos()">Clear ✕</span>
+        <span style="cursor:pointer;color:var(--rust);font-size:11px" onclick="clearPhotos()">Clear ✕</span>
       </div>
       <div class="captured-strip" id="thumbStrip"></div>
     </div>
 
-    <!-- Fallback: file input -->
-    <input type="file" id="photoFileCamera" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoInput(this)">
-    <input type="file" id="photoFileGallery" accept="image/*" multiple style="display:none;" onchange="handlePhotoInput(this)">
-
-    <div style="display:flex; gap:8px; margin-bottom:10px;">
-      <button class="btn btn-ghost" style="flex:1; padding:11px; font-size:13px; margin-top:0;" onclick="document.getElementById('photoFileCamera').click()">
-        📸 Take photo
-      </button>
-      <button class="btn btn-ghost" style="flex:1; padding:11px; font-size:13px; margin-top:0;" onclick="document.getElementById('photoFileGallery').click()">
-        🖼️ Gallery
-      </button>
+    <!-- Fallback inputs -->
+    <input type="file" id="photoFileCamera" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoInput(this)">
+    <input type="file" id="photoFileGallery" accept="image/*" multiple style="display:none" onchange="handlePhotoInput(this)">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-ghost" style="flex:1;padding:11px;font-size:13px;margin-top:0" onclick="document.getElementById('photoFileCamera').click()">📸 Take photo</button>
+      <button class="btn btn-ghost" style="flex:1;padding:11px;font-size:13px;margin-top:0" onclick="document.getElementById('photoFileGallery').click()">🖼️ Gallery</button>
     </div>
 
-    <!-- Paste zone for desktop -->
-    <div id="pasteZone" style="padding:10px 14px; background:var(--cream); border:1px solid var(--border); border-radius:10px; font-size:12px; color:var(--muted); text-align:center; cursor:pointer; margin-bottom:14px;" onclick="this.focus()" tabindex="0">
-      Desktop: paste a screenshot here (Ctrl/Cmd + V)
+    <div id="pasteZone" tabindex="0" style="padding:10px 14px;background:var(--cream);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;cursor:pointer;margin-bottom:14px" onclick="this.focus()">
+      Desktop: paste screenshot here (Ctrl/Cmd+V)
     </div>
 
-    <!-- Text description -->
-    <div class="feel-block" style="margin-bottom:16px;">
+    <div class="feel-block" style="margin-bottom:16px">
       <div class="feel-q">How far did you get? What stopped you?</div>
-      <textarea id="movementDesc" placeholder="e.g. I could only fold halfway, felt a strong pull in the back of my left knee and my lower back rounded a lot…" style="width:100%; min-height:80px; border:1.5px solid var(--border); border-radius:10px; padding:12px; font-family:'Outfit',sans-serif; font-size:13px; color:var(--ink); background:var(--paper); resize:vertical; line-height:1.6; outline:none;" oninput="checkStep3()"></textarea>
+      <textarea id="movementDesc" oninput="checkStep3()" placeholder="e.g. I could only fold halfway, felt a strong pull behind my left knee…" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--ink);background:var(--paper);resize:vertical;line-height:1.6;outline:none"></textarea>
     </div>
 
     <button class="btn btn-sage" id="toStep4Btn" onclick="goStep4()" disabled>Continue to feedback →</button>
-    <button class="btn btn-ghost" style="margin-top:10px;" onclick="goStep2()">← Back to guide</button>
+    <button class="btn btn-ghost" onclick="goStep2()">← Back to guide</button>
   </div>
 
-  <!-- ══ STEP 4: Feedback ══ -->
+  <!-- ── Step 4: Feedback ── -->
   <div id="step4" class="section">
-    <div style="padding:28px 0 18px;">
-      <div class="hero-eyebrow">Your experience</div>
-      <h2 style="font-family:'Playfair Display',serif; font-size:24px; line-height:1.2; margin-bottom:8px;">What did you <em style="color:var(--sage); font-family:'Playfair Display',serif;">notice</em>?</h2>
-      <p style="font-size:13px; color:var(--muted); line-height:1.6;" id="feedbackSub"></p>
+    <div style="padding:28px 0 18px">
+      <div class="eyebrow">Your experience</div>
+      <h2 class="serif-title" style="font-size:24px;line-height:1.2;margin-bottom:8px">What did you <em>notice</em>?</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="feedbackSub"></p>
     </div>
-
     <div class="feel-block">
       <div class="feel-q">Where did you feel limited or tight?</div>
       <div class="area-chips" id="areaChips"></div>
     </div>
-
     <div class="feel-block">
       <div class="feel-q">What type of sensation was it?</div>
       <div class="sensation-grid">
@@ -282,514 +321,645 @@ body {
         <button class="sensation-btn" onclick="toggleS(this)">✅ Just tight, no pain</button>
       </div>
     </div>
-
     <div class="feel-block">
       <div class="feel-q">How intense was the restriction?</div>
       <div class="dot-scale" id="dotScale">
-        <div class="dot" onclick="setInt(1)" data-i="1"></div>
-        <div class="dot" onclick="setInt(2)" data-i="2"></div>
-        <div class="dot" onclick="setInt(3)" data-i="3"></div>
-        <div class="dot" onclick="setInt(4)" data-i="4"></div>
-        <div class="dot" onclick="setInt(5)" data-i="5"></div>
-        <div class="dot" onclick="setInt(6)" data-i="6"></div>
-        <div class="dot" onclick="setInt(7)" data-i="7"></div>
-        <div class="dot" onclick="setInt(8)" data-i="8"></div>
-        <div class="dot" onclick="setInt(9)" data-i="9"></div>
-        <div class="dot" onclick="setInt(10)" data-i="10"></div>
+        <div class="dot" onclick="setInt(1)"></div><div class="dot" onclick="setInt(2)"></div>
+        <div class="dot" onclick="setInt(3)"></div><div class="dot" onclick="setInt(4)"></div>
+        <div class="dot" onclick="setInt(5)"></div><div class="dot" onclick="setInt(6)"></div>
+        <div class="dot" onclick="setInt(7)"></div><div class="dot" onclick="setInt(8)"></div>
+        <div class="dot" onclick="setInt(9)"></div><div class="dot" onclick="setInt(10)"></div>
       </div>
       <div class="scale-labels"><span>Minimal</span><span>Moderate</span><span>Severe</span></div>
-      <div id="intLabel" style="font-size:13px; color:var(--sage); font-weight:600; margin-top:9px; min-height:18px;"></div>
+      <div id="intLabel" style="font-size:13px;color:var(--sage);font-weight:600;margin-top:9px;min-height:18px"></div>
     </div>
-
     <div class="feel-block">
       <div class="feel-q">Did one side feel <em>more restricted</em>?</div>
-      <div style="display:flex; gap:8px;">
-        <button class="sensation-btn" style="flex:1;" onclick="setSide(this,'left')">◀ Left</button>
-        <button class="sensation-btn" style="flex:1;" onclick="setSide(this,'equal')">⟷ Equal</button>
-        <button class="sensation-btn" style="flex:1;" onclick="setSide(this,'right')">▶ Right</button>
+      <div style="display:flex;gap:8px">
+        <button class="sensation-btn" style="flex:1" onclick="setSide(this,'left')">◀ Left</button>
+        <button class="sensation-btn" style="flex:1" onclick="setSide(this,'equal')">⟷ Equal</button>
+        <button class="sensation-btn" style="flex:1" onclick="setSide(this,'right')">▶ Right</button>
       </div>
     </div>
-
-    <button class="btn btn-sage mt20" id="analyseBtn" onclick="goStep5()">Analyse my movement →</button>
+    <button class="btn btn-sage mt20" onclick="goStep5()">Analyse my movement →</button>
     <button class="btn btn-ghost" onclick="goStep3()">← Recapture</button>
   </div>
 
-  <!-- ══ STEP 5: Results ══ -->
+  <!-- ── Step 5: Results ── -->
   <div id="step5" class="section">
-    <div style="padding:28px 0 20px; text-align:center;">
-      <div class="hero-eyebrow">AI Analysis</div>
-      <h2 style="font-family:'Playfair Display',serif; font-size:26px; margin-bottom:6px;">Your <em style="color:var(--sage); font-family:'Playfair Display',serif;">release plan</em></h2>
-      <p style="font-size:13px; color:var(--muted);" id="analysisSub"></p>
+    <div style="padding:28px 0 20px;text-align:center">
+      <div class="eyebrow">AI Analysis</div>
+      <h2 class="serif-title" style="font-size:26px;margin-bottom:6px">Your <em>release plan</em></h2>
+      <p style="font-size:13px;color:var(--muted)" id="analysisSub"></p>
     </div>
     <div id="loadingBlock">
       <div class="loading-ring"></div>
-      <div class="loading-msg" id="loadingMsg">Analysing your movement quality…</div>
+      <div class="loading-msg" id="loadingMsg">Analysing your movement…</div>
     </div>
-    <div id="resultsBlock" style="display:none;"></div>
+    <div id="resultsBlock" style="display:none"></div>
   </div>
 
+</div><!-- /app -->
+
+<!-- ════════════════════════════════════
+     CAMERA OVERLAY
+════════════════════════════════════ -->
+<div id="camOverlay">
+  <div class="cam-video-wrap">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <canvas id="camCanvas"></canvas>
+    <div id="camGhost"></div>
+    <div id="camFlash"></div>
+
+    <!-- Loading -->
+    <div id="camLoading">
+      <div class="cam-loading-ring"></div>
+      <p id="camLoadingMsg" style="font-size:14px;color:rgba(255,255,255,.7)">Starting camera…</p>
+    </div>
+
+    <!-- Top -->
+    <div class="cam-top">
+      <div class="cam-move-label"><span id="camTopIcon"></span><span id="camTopName"></span></div>
+      <button class="cam-close-btn" onclick="closeCamera()">✕</button>
+    </div>
+
+    <!-- Cue -->
+    <div class="cam-cue"><div class="cam-cue-chip hide" id="camCueChip">Align your body</div></div>
+
+    <!-- Status -->
+    <div class="cam-status loading" id="camStatus">
+      <div class="cam-status-dot"></div>
+      <span id="camStatusText">Loading pose model…</span>
+    </div>
+
+    <!-- Countdown -->
+    <div class="cam-countdown" id="camCountdown">
+      <div class="cd-ring-wrap">
+        <svg viewBox="0 0 80 80"><circle class="cd-track" cx="40" cy="40" r="35"/><circle class="cd-fill" id="cdFill" cx="40" cy="40" r="35"/></svg>
+        <div class="cd-num" id="cdNum">3</div>
+      </div>
+      <div class="cd-label">Hold still…</div>
+    </div>
+
+    <!-- Thumbnails -->
+    <div class="cam-thumbs" id="camThumbs"></div>
+
+    <!-- Done -->
+    <button id="camDoneBtn" onclick="useCameraPhotos()"></button>
+
+    <!-- Bottom -->
+    <div class="cam-bottom">
+      <button class="cam-side-btn" onclick="flipCam()">⟳</button>
+      <div class="cam-shutter-wrap">
+        <button class="cam-shutter" id="camShutter" onclick="manualCapture()"></button>
+        <div class="cam-photo-count" id="camPhotoCount">0</div>
+      </div>
+      <button class="cam-side-btn" id="ghostToggleBtn" onclick="toggleGhost()">👤</button>
+    </div>
+  </div>
 </div>
 
+<!-- Deploy button -->
+<button id="deployBtn" onclick="deployToGitHub()">🚀 Deploy</button>
+
 <script>
-// ════ DATA ════
+// ══════════════════════════════════════════════════════
+// MOVEMENT DATA
+// ══════════════════════════════════════════════════════
 const MOVEMENTS = {
-  'forward-fold': {
-    icon:'🧘', name:'Standing Forward Fold', sub:'Tests posterior chain mobility — hamstrings, calves, lower back.',
-    note:'Film yourself from the side. Your spine curve and leg angle are the key data.',
-    cues:[
-      'Stand with feet hip-width apart, toes pointing forward',
-      'Inhale to lengthen your spine tall',
-      'Exhale and fold forward from the hips — not the waist',
-      'Let arms hang heavy. Don\'t force the depth',
-      'Hold your deepest comfortable position for 5–8 slow breaths'
-    ],
+  'forward-fold':{
+    icon:'🧘',name:'Standing Forward Fold',sub:'Tests posterior chain mobility — hamstrings, calves, lower back.',
+    note:'Film from the side. Spine curve and leg angle are the key data.',
+    cues:['Stand with feet hip-width apart, toes pointing forward','Inhale to lengthen your spine tall','Exhale and fold forward from the hips — not the waist','Let arms hang heavy. Don\'t force the depth','Hold your deepest comfortable position for 5–8 slow breaths'],
     areas:['Lower back','Hamstrings','Glutes','Hips','Calves / Achilles','Upper back','Shoulders'],
-    prompt:'Where did you feel the tightest pull as you folded forward?'
+    prompt:'Where did you feel the tightest pull as you folded forward?',
+    camCues:['Stand facing camera, feet hip-width','Step back so full body is visible','Inhale tall, then fold forward slowly','Let arms hang — hold deepest position','Keep breathing, stay still for capture']
   },
-  'deep-squat': {
-    icon:'🏋️', name:'Deep Squat Hold', sub:'One of the best full-body mobility assessments.',
-    note:'Film from the front AND side if possible. Watch heels, knees, and spine.',
-    cues:[
-      'Stand with feet shoulder-width, toes turned out slightly (30–45°)',
-      'Slowly lower into the deepest squat you can hold for 10 seconds',
-      'Note if your heels lift off the floor — this is important data',
-      'Arms can reach forward for balance',
-      'Hold and breathe — don\'t force your knees'
-    ],
+  'deep-squat':{
+    icon:'🏋️',name:'Deep Squat Hold',sub:'One of the best full-body mobility assessments.',
+    note:'Film from front AND side if possible. Watch heels, knees, spine.',
+    cues:['Stand with feet shoulder-width, toes turned out slightly (30–45°)','Slowly lower into the deepest squat you can hold for 10 seconds','Note if your heels lift off the floor — this is key data','Arms can reach forward for balance','Hold and breathe — don\'t force your knees'],
     areas:['Hips','Ankles','Knees','Lower back','Glutes','Groin / adductors','Achilles tendon'],
-    prompt:'What stopped you from going deeper or felt most restricted?'
+    prompt:'What stopped you from going deeper or felt most restricted?',
+    camCues:['Face the camera, feet shoulder-width','Toes angled out 30–45°','Sink slowly into your deepest squat','Arms forward for balance if needed','Hold the bottom — stay still']
   },
-  'shoulder-reach': {
-    icon:'🙋', name:'Overhead Arm Reach', sub:'Tests shoulder, thoracic and lat mobility together.',
-    note:'Film from the side — we need to see if your arms reach vertical and if your back arches.',
-    cues:[
-      'Stand tall, feet hip-width, arms at sides',
-      'Raise both arms overhead, palms facing each other',
-      'Try to bring arms fully vertical without arching your lower back',
-      'Notice if one arm or both can\'t reach straight up',
-      'Hold the top position for 5 breaths and observe'
-    ],
+  'shoulder-reach':{
+    icon:'🙋',name:'Overhead Arm Reach',sub:'Tests shoulder, thoracic and lat mobility together.',
+    note:'Film from the side — we need to see if arms reach vertical and if back arches.',
+    cues:['Stand tall, feet hip-width, arms at sides','Raise both arms overhead, palms facing each other','Try to bring arms fully vertical without arching your lower back','Notice if one arm or both can\'t reach straight up','Hold the top position for 5 breaths and observe'],
     areas:['Shoulders','Lats / side body','Upper back / thoracic','Chest / pecs','Neck','Wrists / forearms'],
-    prompt:'Which area prevented your arms from fully reaching overhead?'
+    prompt:'Which area prevented your arms from fully reaching overhead?',
+    camCues:['Stand sideways to the camera','Feet hip-width, arms at sides','Raise both arms overhead slowly','Try to reach fully vertical','Hold the top position — stay still']
   },
-  'neck-rotation': {
-    icon:'🔄', name:'Neck Rotation', sub:'Reveals upper trap, SCM and cervical joint tension.',
-    note:'Film from above or have someone record from behind. Shoulder symmetry matters.',
-    cues:[
-      'Sit or stand tall, shoulders relaxed and level',
-      'Slowly turn your head to the LEFT as far as comfortable — hold 3 seconds',
-      'Return to centre, breathe',
-      'Slowly turn to the RIGHT as far as comfortable — hold 3 seconds',
-      'Do NOT push through sharp or shooting pain'
-    ],
+  'neck-rotation':{
+    icon:'🔄',name:'Neck Rotation',sub:'Reveals upper trap, SCM and cervical joint tension.',
+    note:'Film from above or from behind. Shoulder symmetry matters.',
+    cues:['Sit or stand tall, shoulders relaxed and level','Slowly turn your head to the LEFT as far as comfortable — hold 3 sec','Return to centre, breathe','Slowly turn to the RIGHT as far as comfortable — hold 3 sec','Do NOT push through sharp or shooting pain'],
     areas:['Left neck','Right neck','Upper traps','Base of skull','Jaw muscles','Left shoulder','Right shoulder'],
-    prompt:'Which direction felt more restricted, and where exactly did you feel it?'
+    prompt:'Which direction felt more restricted, and where exactly did you feel it?',
+    camCues:['Sit or stand, face the camera','Shoulders relaxed and level','Slowly turn head to the LEFT','Hold 3 sec, return, turn RIGHT','Note which side feels tighter']
   },
-  'cat-cow': {
-    icon:'🐱', name:'Cat-Cow Spinal Wave', sub:'Reveals segmental stiffness along the whole spine.',
-    note:'Film from the side. We\'re reading where your spine bends freely vs. stays flat.',
-    cues:[
-      'Come onto hands and knees — wrists under shoulders, knees under hips',
-      'Inhale: arch your back (cow) — lift tailbone and head, drop belly',
-      'Exhale: round your spine (cat) — tuck tailbone, drop head, push floor away',
-      'Move slowly through 6–8 cycles, noticing where feels "stuck"',
-      'Try to make the movement segmental — wave through each vertebra'
-    ],
+  'cat-cow':{
+    icon:'🐱',name:'Cat-Cow Spinal Wave',sub:'Reveals segmental stiffness along the whole spine.',
+    note:'Film from the side. We\'re reading where spine bends freely vs stays flat.',
+    cues:['Come onto hands and knees — wrists under shoulders, knees under hips','Inhale: arch your back (cow) — lift tailbone and head, drop belly','Exhale: round your spine (cat) — tuck tailbone, drop head, push floor away','Move slowly through 6–8 cycles, noticing where feels "stuck"','Try to make the movement segmental — wave through each vertebra'],
     areas:['Lower back','Mid back / thoracic','Upper back','Neck','Hips','Core / abdomen'],
-    prompt:'Where in your spine did movement feel blocked or stiff?'
+    prompt:'Where in your spine did movement feel blocked or stiff?',
+    camCues:['Hands and knees, side to camera','Wrists under shoulders, knees under hips','Inhale: arch back (cow pose)','Exhale: round spine (cat pose)','Cycle slowly, hold each end position']
   },
-  'hip-hinge': {
-    icon:'↩️', name:'Hip Hinge', sub:'Tests glute activation, hamstring tension and lumbar control.',
+  'hip-hinge':{
+    icon:'↩️',name:'Hip Hinge',sub:'Tests glute activation, hamstring tension and lumbar control.',
     note:'Film from the side — we need to distinguish hip movement from spine bending.',
-    cues:[
-      'Stand hip-width, soft bend in knees, hands on thighs',
-      'Push your hips straight back — imagine closing a car door with your hips',
-      'Keep spine long and neutral throughout (not rounded, not arched)',
-      'Lower your torso until it\'s roughly parallel to the floor, then return',
-      'Repeat 3–4 times slowly, then hold the bottom position'
-    ],
+    cues:['Stand hip-width, soft bend in knees, hands on thighs','Push your hips straight back — imagine closing a car door with your hips','Keep spine long and neutral throughout (not rounded, not arched)','Lower your torso until roughly parallel to floor, then return','Repeat 3–4 times slowly, then hold the bottom position'],
     areas:['Glutes','Hamstrings','Lower back','Hip flexors','Core','Upper back'],
-    prompt:'Did your back round, hips not push back, or did you feel tightness elsewhere?'
+    prompt:'Did your back round, hips not push back, or tightness elsewhere?',
+    camCues:['Stand sideways to the camera','Feet hip-width, soft knees','Push hips straight back','Keep spine long and neutral','Hold bottom — stay still']
   }
 };
 
-const state = {
-  mv: null, photos: [], cameraFacing: 'user', stream: null,
-  areas: [], sensations: [], intensity: 0, side: null
-};
+// Ghost SVGs per movement
+function ghostSVG(id){
+  const c='rgba(93,232,160,0.9)';
+  const s=`stroke="${c}" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+  const g={
+    'forward-fold':`<svg viewBox="0 0 120 340" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="22" r="16" ${s}/><path d="M60 38 Q55 80 40 130" ${s}/><path d="M55 55 Q35 90 28 140" ${s}/><path d="M55 55 Q50 95 45 140" ${s}/><path d="M40 130 Q60 140 80 130" ${s}/><path d="M48 132 Q44 200 46 260" ${s}/><path d="M72 132 Q76 200 74 260" ${s}/><path d="M46 260 Q38 265 30 262" ${s}/><path d="M74 260 Q82 265 90 262" ${s}/></svg>`,
+    'deep-squat':`<svg viewBox="0 0 160 280" xmlns="http://www.w3.org/2000/svg"><circle cx="80" cy="22" r="16" ${s}/><path d="M80 38 L80 110" ${s}/><path d="M72 60 Q50 80 30 90" ${s}/><path d="M88 60 Q110 80 130 90" ${s}/><path d="M60 110 Q80 118 100 110" ${s}/><path d="M65 112 Q40 150 35 195" ${s}/><path d="M95 112 Q120 150 125 195" ${s}/><path d="M35 195 Q32 235 33 255" ${s}/><path d="M125 195 Q128 235 127 255" ${s}/><path d="M33 255 Q22 260 14 258" ${s}/><path d="M127 255 Q138 260 146 258" ${s}/></svg>`,
+    'shoulder-reach':`<svg viewBox="0 0 120 360" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="22" r="16" ${s}/><path d="M60 38 L60 140" ${s}/><path d="M52 55 Q45 30 44 10" ${s}/><path d="M68 55 Q75 30 76 10" ${s}/><path d="M48 140 Q60 148 72 140" ${s}/><path d="M52 142 L50 260" ${s}/><path d="M68 142 L70 260" ${s}/><path d="M50 260 Q42 265 34 262" ${s}/><path d="M70 260 Q78 265 86 262" ${s}/></svg>`,
+    'neck-rotation':`<svg viewBox="0 0 120 300" xmlns="http://www.w3.org/2000/svg"><ellipse cx="68" cy="22" rx="18" ry="16" ${s}/><path d="M60 36 L58 52" ${s}/><path d="M30 58 L90 58" ${s}/><path d="M60 58 L60 150" ${s}/><path d="M38 62 Q32 100 30 140" ${s}/><path d="M82 62 Q88 100 90 140" ${s}/><path d="M48 150 Q60 158 72 150" ${s}/><path d="M52 152 L50 260" ${s}/><path d="M68 152 L70 260" ${s}/></svg>`,
+    'cat-cow':`<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="80" r="14" ${s}/><path d="M54 84 Q100 50 140 55 Q180 60 220 80" ${s}/><path d="M62 88 L55 145" ${s}/><path d="M70 88 L75 145" ${s}/><path d="M210 84 L205 145" ${s}/><path d="M218 84 L225 145" ${s}/><path d="M55 145 Q46 150 38 148" ${s}/><path d="M75 145 Q82 150 88 148" ${s}/><path d="M205 145 Q196 150 188 148" ${s}/><path d="M225 145 Q232 150 238 148" ${s}/></svg>`,
+    'hip-hinge':`<svg viewBox="0 0 180 300" xmlns="http://www.w3.org/2000/svg"><circle cx="130" cy="50" r="16" ${s}/><path d="M120 64 Q100 90 80 120" ${s}/><path d="M108 75 Q95 105 88 130" ${s}/><path d="M115 80 Q105 110 100 135" ${s}/><path d="M80 120 Q70 128 58 122" ${s}/><path d="M64 124 Q60 175 62 230" ${s}/><path d="M54 122 Q50 172 52 230" ${s}/><path d="M62 230 Q63 260 64 280" ${s}/><path d="M52 230 Q51 260 50 280" ${s}/><path d="M64 280 Q72 285 80 283" ${s}/><path d="M50 280 Q42 285 34 283" ${s}/></svg>`
+  };
+  return g[id]||g['forward-fold'];
+}
 
-// ════ NAV ════
-function setProgress(n) {
-  document.getElementById('progressFill').style.width = ((n-1)/4*100)+'%';
-  const phases = ['Select Movement','Prepare','Record','Your Feedback','Your Plan'];
-  document.getElementById('phaseBadge').textContent = phases[n-1];
-  ['ps1','ps2','ps3','ps4','ps5'].forEach((id,i) => {
-    document.getElementById(id).className = i < n ? 'done' : '';
+// ══════════════════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════════════════
+const state={
+  mv:null,photos:[],areas:[],sensations:[],intensity:0,side:null,
+  camStream:null,camFacing:'user',
+  poseDetected:false,countingDown:false,cdStart:null,cdRaf:null,
+  cueIdx:0,cueTimer:null,ghostOn:true
+};
+let poseModel=null,mpCamera=null;
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function setProgress(n){
+  document.getElementById('progressFill').style.width=((n-1)/4*100)+'%';
+  const phases=['Select Movement','Prepare','Record','Your Feedback','Your Plan'];
+  document.getElementById('phaseBadge').textContent=phases[n-1];
+  ['ps1','ps2','ps3','ps4','ps5'].forEach((id,i)=>{
+    document.getElementById(id).className=i<n?'done':'';
   });
 }
-function show(id, n) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+function showSection(id,n){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   setProgress(n);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function goStep1() { show('step1',1); }
-function goStep2() {
-  const mv = MOVEMENTS[state.mv];
-  if (!mv) return;
-  document.getElementById('poseTitle').textContent = mv.name;
-  document.getElementById('poseSub').textContent = mv.sub;
-  document.getElementById('poseFigure').textContent = mv.icon;
-  document.getElementById('poseNote').textContent = mv.note;
-  const cl = document.getElementById('cueList');
-  cl.innerHTML = '';
-  mv.cues.forEach((c,i) => {
-    const li = document.createElement('li');
-    li.className = 'cue-item';
-    li.style.animationDelay = (i*0.07)+'s';
-    li.innerHTML = `<div class="cue-dot"></div><span>${c}</span>`;
+function goStep1(){showSection('step1',1);}
+function goStep2(){
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('poseTitle').textContent=mv.name;
+  document.getElementById('poseSub').textContent=mv.sub;
+  document.getElementById('poseFigure').textContent=mv.icon;
+  document.getElementById('poseNote').textContent=mv.note;
+  const cl=document.getElementById('cueList');
+  cl.innerHTML='';
+  mv.cues.forEach((c,i)=>{
+    const li=document.createElement('li');
+    li.className='cue-item';
+    li.style.animationDelay=(i*.07)+'s';
+    li.innerHTML=`<div class="cue-dot"></div><span>${c}</span>`;
     cl.appendChild(li);
   });
-  show('step2',2);
+  showSection('step2',2);
 }
-function goStep3() {
-  const mv = MOVEMENTS[state.mv];
-  document.getElementById('step3MoveName').textContent = mv.name;
-  document.getElementById('step3Icon').textContent = mv.icon;
-  document.getElementById('step3Reminder').textContent = 'Do it now. Notice where you get stuck, what pulls, what won\'t move freely.';
-  document.getElementById('movementDesc').value = '';
-  state.photos = [];
-  updateCapUI();
-  document.getElementById('toStep4Btn').disabled = true;
-  document.getElementById('photoDropZone').onclick = () => document.getElementById('photoFileInput').click();
-  const paste = document.getElementById('pasteZone');
-  paste.onpaste = e => {
-    const items = e.clipboardData?.items || [];
-    for (const item of items) {
-      if (item.type.startsWith('image/')) loadImageFile(item.getAsFile());
+function goStep3(){
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('step3MoveName').textContent=mv.name;
+  document.getElementById('movementDesc').value='';
+  state.photos=[];
+  updateThumbStrip();
+  document.getElementById('toStep4Btn').disabled=true;
+  // Paste handler
+  const pz=document.getElementById('pasteZone');
+  pz.onpaste=e=>{
+    for(const item of(e.clipboardData?.items||[])){
+      if(item.type.startsWith('image/'))loadImageFile(item.getAsFile());
     }
   };
-  show('step3', 3);
+  showSection('step3',3);
 }
-function goStep4() {
-  const mv = MOVEMENTS[state.mv];
-  document.getElementById('feedbackSub').textContent = mv.prompt;
-  const ac = document.getElementById('areaChips');
-  ac.innerHTML = '';
-  state.areas = [];
-  mv.areas.forEach(a => {
-    const btn = document.createElement('button');
-    btn.className = 'area-chip';
-    btn.textContent = a;
-    btn.onclick = () => {
+function goStep4(){
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('feedbackSub').textContent=mv.prompt;
+  const ac=document.getElementById('areaChips');
+  ac.innerHTML='';state.areas=[];
+  mv.areas.forEach(a=>{
+    const btn=document.createElement('button');
+    btn.className='area-chip';btn.textContent=a;
+    btn.onclick=()=>{
       btn.classList.toggle('active');
-      state.areas = btn.classList.contains('active')
-        ? [...state.areas, a]
-        : state.areas.filter(x => x !== a);
+      state.areas=btn.classList.contains('active')?[...state.areas,a]:state.areas.filter(x=>x!==a);
     };
     ac.appendChild(btn);
   });
-  show('step4',4);
+  showSection('step4',4);
 }
-function goStep5() { show('step5',5); runAnalysis(); }
+function goStep5(){showSection('step5',5);runAnalysis();}
 
-// ════ MOVEMENT SELECT ════
-(function buildMovementGrid() {
-  const grid = document.getElementById('movementGrid');
-  Object.entries(MOVEMENTS).forEach(([id, mv]) => {
-    const div = document.createElement('div');
-    div.className = 'movement-card';
-    div.dataset.id = id;
-    div.innerHTML = `
-      <div class="mv-icon">${mv.icon}</div>
+// ══════════════════════════════════════════════════════
+// MOVEMENT GRID (build on load)
+// ══════════════════════════════════════════════════════
+(function buildGrid(){
+  const grid=document.getElementById('movementGrid');
+  Object.entries(MOVEMENTS).forEach(([id,mv])=>{
+    const div=document.createElement('div');
+    div.className='movement-card';div.dataset.id=id;
+    div.innerHTML=`<div class="mv-icon">${mv.icon}</div>
       <div class="mv-info">
         <div class="mv-name">${mv.name}</div>
         <div class="mv-desc">${mv.sub}</div>
         <div class="mv-tags">${mv.areas.slice(0,3).map(a=>`<span class="mv-tag">${a}</span>`).join('')}</div>
       </div>
       <div class="mv-check">✓</div>`;
-    div.onclick = () => {
-      document.querySelectorAll('.movement-card').forEach(c => c.classList.remove('selected'));
-      div.classList.add('selected');
-      state.mv = id;
-      document.getElementById('toStep2Btn').disabled = false;
+    div.onclick=()=>{
+      document.querySelectorAll('.movement-card').forEach(c=>c.classList.remove('selected'));
+      div.classList.add('selected');state.mv=id;
+      document.getElementById('toStep2Btn').disabled=false;
     };
     grid.appendChild(div);
   });
 })();
 
-// ════ STEP 3 ════
-function goStep3() {
-  const mv = MOVEMENTS[state.mv];
-  document.getElementById('step3MoveName').textContent = mv.name;
-  document.getElementById('movementDesc').value = '';
-  state.photos = [];
-  updateCapUI();
-  document.getElementById('toStep4Btn').disabled = true;
+// ══════════════════════════════════════════════════════
+// CAMERA OVERLAY
+// ══════════════════════════════════════════════════════
+async function openCamera(){
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('camTopIcon').textContent=mv.icon;
+  document.getElementById('camTopName').textContent=mv.name;
+  document.getElementById('camGhost').innerHTML=ghostSVG(state.mv);
+  document.getElementById('camOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  camSetStatus('loading','Starting camera…');
+  document.getElementById('camLoading').classList.remove('hide');
 
-  // Paste handler (desktop)
-  const paste = document.getElementById('pasteZone');
-  paste.onpaste = e => {
-    const items = e.clipboardData?.items || [];
-    for (const item of items) {
-      if (item.type.startsWith('image/')) loadImageFile(item.getAsFile());
-    }
-  };
-
-  // Pick up photos when returning from camera.html
-  document.addEventListener('visibilitychange', pickupCameraPhotos);
-
-  show('step3', 3);
+  await startCamStream();
+  await initPose();
+  startCueCycle();
 }
 
-function launchCamera() {
-  // Save scroll & push camera page
-  sessionStorage.removeItem('cameraPhotos');
-  window.location.href = 'camera.html?mv=' + encodeURIComponent(state.mv);
+async function startCamStream(){
+  try{
+    if(state.camStream)state.camStream.getTracks().forEach(t=>t.stop());
+    state.camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:state.camFacing,width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    const v=document.getElementById('camVideo');
+    v.srcObject=state.camStream;
+    await v.play();
+    v.addEventListener('loadedmetadata',()=>{
+      const c=document.getElementById('camCanvas');
+      c.width=v.videoWidth;c.height=v.videoHeight;
+    },{once:true});
+  }catch(e){
+    document.getElementById('camLoadingMsg').textContent='Camera access denied. Please allow camera and try again.';
+  }
 }
 
-function pickupCameraPhotos() {
-  if (document.visibilityState !== 'visible') return;
-  document.removeEventListener('visibilitychange', pickupCameraPhotos);
-  const raw = sessionStorage.getItem('cameraPhotos');
-  if (!raw) return;
-  try {
-    const photos = JSON.parse(raw);
-    if (Array.isArray(photos) && photos.length > 0) {
-      state.photos = photos;
-      updateCapUI();
-      checkStep3();
-      sessionStorage.removeItem('cameraPhotos');
-    }
-  } catch(e) {}
+async function flipCam(){
+  state.camFacing=state.camFacing==='user'?'environment':'user';
+  if(mpCamera){mpCamera.stop();mpCamera=null;}
+  await startCamStream();
+  initPose();
 }
 
-function clearPhotos() {
-  state.photos = [];
-  updateCapUI();
+function closeCamera(){
+  stopCamera();
+  document.getElementById('camOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function stopCamera(){
+  if(state.camStream)state.camStream.getTracks().forEach(t=>t.stop());
+  state.camStream=null;
+  if(mpCamera){mpCamera.stop();mpCamera=null;}
+  if(poseModel){poseModel.close();poseModel=null;}
+  clearInterval(state.cueTimer);
+  cancelCD();
+  state.poseDetected=false;
+}
+
+// ── MediaPipe Pose ──
+async function initPose(){
+  camSetStatus('loading','Loading pose model…');
+  try{
+    poseModel=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+    poseModel.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.55,minTrackingConfidence:.55});
+    poseModel.onResults(onPoseResults);
+    mpCamera=new Camera(document.getElementById('camVideo'),{
+      onFrame:async()=>{if(poseModel)await poseModel.send({image:document.getElementById('camVideo')});},
+      width:1280,height:720
+    });
+    await mpCamera.start();
+    document.getElementById('camLoading').classList.add('hide');
+    camSetStatus('noPose','Step into frame');
+  }catch(e){
+    document.getElementById('camLoading').classList.add('hide');
+    camSetStatus('noPose','Pose model unavailable — tap shutter to capture manually');
+  }
+}
+
+const SKEL_CONNECTIONS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,31],[24,26],[26,28],[28,32]];
+
+function onPoseResults(results){
+  const canvas=document.getElementById('camCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!results.poseLandmarks){onNoPose();return;}
+  const lm=results.poseLandmarks;
+  const conf=(lm[11]?.visibility||0)+(lm[12]?.visibility||0);
+  if(conf<0.8){onNoPose();return;}
+  onPoseFound();
+  // Draw skeleton
+  ctx.lineWidth=3;ctx.strokeStyle='rgba(93,232,160,.85)';ctx.lineCap='round';
+  SKEL_CONNECTIONS.forEach(([a,b])=>{
+    const pa=lm[a],pb=lm[b];
+    if(!pa||!pb||(pa.visibility||0)<.3||(pb.visibility||0)<.3)return;
+    ctx.beginPath();
+    ctx.moveTo(pa.x*canvas.width,pa.y*canvas.height);
+    ctx.lineTo(pb.x*canvas.width,pb.y*canvas.height);
+    ctx.stroke();
+  });
+  [0,11,12,13,14,15,16,23,24,25,26,27,28,31,32].forEach(i=>{
+    const pt=lm[i];if(!pt||(pt.visibility||0)<.35)return;
+    ctx.beginPath();
+    ctx.arc(pt.x*canvas.width,pt.y*canvas.height,i===0?6:4,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fill();
+    ctx.strokeStyle='rgba(93,232,160,1)';ctx.lineWidth=2;ctx.stroke();
+  });
+}
+
+function onPoseFound(){
+  if(state.poseDetected)return;
+  state.poseDetected=true;
+  camSetStatus('detected','Pose detected — hold still');
+  document.getElementById('camGhost').classList.add('dim');
+  document.getElementById('camShutter').classList.add('armed');
+  if(state.photos.length<4)startCD();
+}
+function onNoPose(){
+  if(!state.poseDetected)return;
+  state.poseDetected=false;
+  camSetStatus('noPose','Step into frame');
+  document.getElementById('camGhost').classList.remove('dim');
+  document.getElementById('camShutter').classList.remove('armed');
+  cancelCD();
+}
+
+// ── Countdown ──
+const CD_SECS=3,CD_CIRC=220;
+function startCD(){
+  if(state.countingDown)return;
+  state.countingDown=true;state.cdStart=performance.now();
+  document.getElementById('camCountdown').classList.add('show');
+  animateCD();
+}
+function animateCD(){
+  if(!state.countingDown)return;
+  const elapsed=(performance.now()-state.cdStart)/1000;
+  const rem=Math.max(0,CD_SECS-elapsed);
+  document.getElementById('cdNum').textContent=Math.ceil(rem)||1;
+  document.getElementById('cdFill').style.strokeDashoffset=CD_CIRC*(1-elapsed/CD_SECS);
+  if(elapsed>=CD_SECS){finishCD();return;}
+  state.cdRaf=requestAnimationFrame(animateCD);
+}
+function finishCD(){
+  state.countingDown=false;
+  document.getElementById('camCountdown').classList.remove('show');
+  document.getElementById('cdFill').style.strokeDashoffset=CD_CIRC;
+  captureFrame();
+}
+function cancelCD(){
+  state.countingDown=false;
+  if(state.cdRaf)cancelAnimationFrame(state.cdRaf);
+  document.getElementById('camCountdown').classList.remove('show');
+  document.getElementById('cdFill').style.strokeDashoffset=CD_CIRC;
+}
+
+// ── Capture ──
+function captureFrame(){
+  const v=document.getElementById('camVideo');
+  const c=document.createElement('canvas');
+  c.width=v.videoWidth;c.height=v.videoHeight;
+  const ctx=c.getContext('2d');
+  if(state.camFacing==='user'){ctx.scale(-1,1);ctx.drawImage(v,-c.width,0);}
+  else{ctx.drawImage(v,0,0);}
+  const labels=['Attempt 1','Attempt 2','Attempt 3','Attempt 4'];
+  state.photos.push({dataUrl:c.toDataURL('image/jpeg',.88),label:labels[state.photos.length]||'Frame'});
+  // Flash
+  const fl=document.getElementById('camFlash');
+  fl.classList.add('flash');setTimeout(()=>fl.classList.remove('flash'),180);
+  updateCamUI();
+  if(state.photos.length<4){
+    state.poseDetected=false;
+    camSetStatus('noPose','Move to next angle');
+    document.getElementById('camShutter').classList.remove('armed');
+  }
+}
+function manualCapture(){cancelCD();captureFrame();}
+
+function updateCamUI(){
+  const n=state.photos.length;
+  const cnt=document.getElementById('camPhotoCount');
+  cnt.textContent=n;cnt.style.display=n>0?'flex':'none';
+  const thumbs=document.getElementById('camThumbs');
+  thumbs.innerHTML='';
+  state.photos.forEach(p=>{
+    const d=document.createElement('div');d.className='cam-thumb';
+    d.innerHTML=`<img src="${p.dataUrl}">`;thumbs.appendChild(d);
+  });
+  const done=document.getElementById('camDoneBtn');
+  if(n>=1){done.textContent=`Use ${n} photo${n>1?'s':''} ✓`;done.classList.add('show');}
+}
+
+function useCameraPhotos(){
+  closeCamera();
+  updateThumbStrip();
   checkStep3();
 }
 
-function handlePhotoInput(input) {
-  Array.from(input.files).slice(0, 3).forEach(loadImageFile);
-  input.value = '';
+// ── Ghost toggle ──
+function toggleGhost(){
+  state.ghostOn=!state.ghostOn;
+  document.getElementById('camGhost').style.opacity=state.ghostOn?'':0;
+  document.getElementById('ghostToggleBtn').style.opacity=state.ghostOn?1:.4;
 }
 
-function loadImageFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const max = 1024;
-      let w = img.width, h = img.height;
-      if (w > max || h > max) {
-        if (w > h) { h = Math.round(h * max / w); w = max; }
-        else { w = Math.round(w * max / h); h = max; }
-      }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const labels = ['Photo 1','Photo 2','Photo 3','Photo 4'];
-      state.photos.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), label: labels[state.photos.length] || 'Photo' });
-      updateCapUI();
-      checkStep3();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function updateCapUI() {
-  const n = state.photos.length;
-  const strip = document.getElementById('thumbStrip');
-  if (strip) {
-    strip.innerHTML = '';
-    state.photos.forEach(p => {
-      const d = document.createElement('div');
-      d.className = 'cap-thumb';
-      d.innerHTML = `<img src="${p.dataUrl}"><div class="cap-thumb-label">${p.label}</div>`;
-      strip.appendChild(d);
-    });
+// ── Cue cycle ──
+function startCueCycle(){
+  const mv=MOVEMENTS[state.mv];state.cueIdx=0;
+  const chip=document.getElementById('camCueChip');
+  function show(i){
+    chip.classList.add('hide');
+    setTimeout(()=>{chip.textContent=mv.camCues[i%mv.camCues.length];chip.classList.remove('hide');},400);
   }
-  const wrap = document.getElementById('capturedWrap');
-  if (wrap) wrap.style.display = n > 0 ? 'block' : 'none';
+  show(0);
+  state.cueTimer=setInterval(()=>show(++state.cueIdx),4000);
 }
 
-function checkStep3() {
-  const desc = document.getElementById('movementDesc')?.value?.trim() || '';
-  const hasContent = desc.length > 10 || state.photos.length > 0;
-  const btn = document.getElementById('toStep4Btn');
-  if (btn) btn.disabled = !hasContent;
+function camSetStatus(type,text){
+  const el=document.getElementById('camStatus');
+  el.className='cam-status '+type;
+  document.getElementById('camStatusText').textContent=text;
 }
 
-// Stub — no live stream in sandbox
-async function tryLiveCamera() {}
-function flipCamera() {}
-function closeLiveCam() {}
-function captureFromStream() {}
+// ══════════════════════════════════════════════════════
+// PHOTO FILE INPUTS (fallback)
+// ══════════════════════════════════════════════════════
+function handlePhotoInput(input){
+  Array.from(input.files).slice(0,3).forEach(loadImageFile);
+  input.value='';
+}
+function loadImageFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const max=1024;let w=img.width,h=img.height;
+      if(w>max||h>max){if(w>h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;}}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const labels=['Photo 1','Photo 2','Photo 3','Photo 4'];
+      state.photos.push({dataUrl:canvas.toDataURL('image/jpeg',.85),label:labels[state.photos.length]||'Photo'});
+      updateThumbStrip();checkStep3();
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);
+}
+function updateThumbStrip(){
+  const n=state.photos.length;
+  const strip=document.getElementById('thumbStrip');
+  strip.innerHTML='';
+  state.photos.forEach(p=>{
+    const d=document.createElement('div');d.className='cap-thumb';
+    d.innerHTML=`<img src="${p.dataUrl}"><div class="cap-thumb-label">${p.label}</div>`;
+    strip.appendChild(d);
+  });
+  document.getElementById('capturedWrap').style.display=n>0?'block':'none';
+}
+function clearPhotos(){state.photos=[];updateThumbStrip();checkStep3();}
+function checkStep3(){
+  const desc=document.getElementById('movementDesc')?.value?.trim()||'';
+  document.getElementById('toStep4Btn').disabled=desc.length<=10&&state.photos.length===0;
+}
 
-// ════ FEEDBACK ════
-function toggleS(el) {
+// ══════════════════════════════════════════════════════
+// FEEDBACK
+// ══════════════════════════════════════════════════════
+function toggleS(el){
   el.classList.toggle('selected');
-  const txt = el.textContent.replace(/^\S+\s/,'').trim();
-  state.sensations = el.classList.contains('selected')
-    ? [...new Set([...state.sensations, txt])]
-    : state.sensations.filter(x => x !== txt);
+  const txt=el.textContent.replace(/^\S+\s/,'').trim();
+  state.sensations=el.classList.contains('selected')?[...new Set([...state.sensations,txt])]:state.sensations.filter(x=>x!==txt);
 }
-function setInt(v) {
-  state.intensity = v;
-  const bucket = v<=3?'f1':v<=6?'f2':v<=8?'f3':'f4';
-  document.querySelectorAll('#dotScale .dot').forEach((d,i) => {
-    d.className = 'dot' + (i < v ? ' '+bucket : '');
+function setInt(v){
+  state.intensity=v;
+  const b=v<=3?'f1':v<=6?'f2':v<=8?'f3':'f4';
+  document.querySelectorAll('#dotScale .dot').forEach((d,i)=>{d.className='dot'+(i<v?' '+b:'');});
+  const lbs=['','Barely noticeable','','Mild','','Moderate','','Notable','','Intense','Very intense'];
+  document.getElementById('intLabel').textContent=lbs[v]||v+'/10';
+}
+let _sideEls=[];
+function setSide(el,side){
+  _sideEls.forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');_sideEls=[el];state.side=side;
+}
+
+// ══════════════════════════════════════════════════════
+// ANALYSIS
+// ══════════════════════════════════════════════════════
+const LOAD_MSGS=['Reading your movement pattern…','Cross-referencing with your feedback…','Identifying compensation chains…','Mapping root cause tensions…','Crafting your personalised plan…'];
+let msgT,msgI=0;
+
+async function runAnalysis(){
+  document.getElementById('loadingBlock').style.display='block';
+  document.getElementById('resultsBlock').style.display='none';
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('analysisSub').textContent='Based on your '+mv.name+' assessment';
+  document.getElementById('loadingMsg').textContent=LOAD_MSGS[0];msgI=0;
+  msgT=setInterval(()=>{msgI=(msgI+1)%LOAD_MSGS.length;document.getElementById('loadingMsg').textContent=LOAD_MSGS[msgI];},2200);
+
+  const content=[];
+  const desc=document.getElementById('movementDesc')?.value?.trim()||'';
+  state.photos.forEach((p,i)=>{
+    content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:p.dataUrl.split(',')[1]}});
+    content.push({type:'text',text:`[Photo ${i+1}: ${p.label}]`});
   });
-  const lbs = ['','Barely noticeable','','Mild','','Moderate','','Notable','','Intense','Very intense'];
-  document.getElementById('intLabel').textContent = lbs[v]||v+'/10';
-}
-let sideEls = [];
-function setSide(el, side) {
-  sideEls.forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-  sideEls = [el];
-  state.side = side;
-}
-
-// ════ ANALYSIS ════
-const MSGS = [
-  'Reading your movement pattern…',
-  'Cross-referencing with your feedback…',
-  'Identifying compensation chains…',
-  'Mapping root cause tensions…',
-  'Crafting your personalised plan…'
-];
-let msgT, msgI = 0;
-
-async function runAnalysis() {
-  document.getElementById('loadingBlock').style.display = 'block';
-  document.getElementById('resultsBlock').style.display = 'none';
-  const mv = MOVEMENTS[state.mv];
-  document.getElementById('analysisSub').textContent = 'Based on your '+mv.name+' assessment';
-  document.getElementById('loadingMsg').textContent = MSGS[0];
-  msgI = 0;
-  msgT = setInterval(() => {
-    msgI = (msgI+1) % MSGS.length;
-    document.getElementById('loadingMsg').textContent = MSGS[msgI];
-  }, 2200);
-
-  const content = [];
-  const movDesc = document.getElementById('movementDesc')?.value?.trim() || '';
-
-  state.photos.forEach((p,i) => {
-    content.push({type:'image', source:{type:'base64', media_type:'image/jpeg', data:p.dataUrl.split(',')[1]}});
-    content.push({type:'text', text:`[Photo ${i+1}: ${p.label} of ${mv.name}]`});
-  });
-  content.push({type:'text', text:`
-You are an expert physiotherapist and movement specialist. I performed the "${mv.name}" movement test.
+  content.push({type:'text',text:`You are an expert physiotherapist and movement specialist. I performed the "${mv.name}" movement test.
 
 MOVEMENT: ${mv.name}
-${state.photos.length > 0 ? `PHOTOS PROVIDED: ${state.photos.length} photo(s) — analyse them for visible compensations and restrictions.` : 'NO PHOTOS — base your analysis entirely on the self-reported data below.'}
-${movDesc ? `\nUSER'S OWN DESCRIPTION OF THE MOVEMENT:\n"${movDesc}"` : ''}
+${state.photos.length>0?`PHOTOS PROVIDED: ${state.photos.length} photo(s) — analyse for visible compensations.`:'NO PHOTOS — base analysis entirely on self-reported data.'}
+${desc?`\nUSER DESCRIPTION:\n"${desc}"`:''}
 
 SELF-REPORTED FEEDBACK:
-- Restricted / tight areas: ${state.areas.length ? state.areas.join(', ') : 'not specified'}
-- Sensations felt: ${state.sensations.length ? state.sensations.join(', ') : 'not specified'}
-- Restriction intensity: ${state.intensity}/10
-- Side asymmetry: ${state.side || 'not assessed'}
+- Restricted areas: ${state.areas.length?state.areas.join(', '):'not specified'}
+- Sensations: ${state.sensations.length?state.sensations.join(', '):'not specified'}
+- Intensity: ${state.intensity}/10
+- Side asymmetry: ${state.side||'not assessed'}
 
-YOUR TASK:
-1. ${state.photos.length > 0 ? 'Analyse the photos for visible movement limitations' : 'Based on the self-reported data, infer the likely movement limitations'} specific to the "${mv.name}"
-2. Correlate all findings to identify the full restriction pattern and compensation chain
-3. Identify the root cause tension(s) driving these limitations
-4. Prescribe 4–5 targeted releases / stretches / mobilisations addressing those root causes
+Return ONLY valid JSON, no markdown:
+{"movementFindings":[{"observation":"...","compensation":"...","rootCause":"..."}],"patternSummary":"2-3 sentences","priorityAreas":["..."],"releases":[{"name":"...","type":"...","targets":["..."],"duration":"...","frequency":"...","whyThisHelps":"...","steps":["..."],"cueToFeel":"..."}],"reassessmentNote":"..."}`});
 
-Return ONLY valid JSON (no markdown fences, no preamble):
-{
-  "movementFindings": [
-    { "observation": "finding", "compensation": "how body compensates", "rootCause": "underlying restriction" }
-  ],
-  "patternSummary": "2-3 sentences on the overall dysfunction and tension chain",
-  "priorityAreas": ["area1","area2","area3"],
-  "releases": [
-    {
-      "name": "Release name",
-      "type": "Myofascial release | Static stretch | Dynamic mobility | Activation",
-      "targets": ["muscle1","muscle2"],
-      "duration": "e.g. 45–60 sec each side",
-      "frequency": "e.g. 2× daily",
-      "whyThisHelps": "explanation tied to THIS person's specific findings",
-      "steps": ["Step 1","Step 2","Step 3","Step 4"],
-      "cueToFeel": "sensory cue to confirm correct placement"
-    }
-  ],
-  "reassessmentNote": "One sentence on what to watch for when retesting after these releases"
-}`});
-
-  try {
-    const res = await fetch('https://chiabot.nebgo.workers.dev/',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:4000,
-        messages:[{role:'user',content}]
-      })
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content}]})
     });
-    const data = await res.json();
-
-    // Handle API-level errors (e.g. auth, rate limit)
-    if (data.error) throw new Error('API error: ' + JSON.stringify(data.error));
-
-    const raw = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-
-    // Strip markdown fences and any leading/trailing non-JSON text
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in response. Raw: ' + raw.substring(0, 300));
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    const data=await res.json();
+    if(data.error)throw new Error('API: '+JSON.stringify(data.error));
+    const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const match=raw.match(/\{[\s\S]*\}/);
+    if(!match)throw new Error('No JSON in response. Raw: '+raw.substring(0,200));
+    clearInterval(msgT);renderResults(JSON.parse(match[0]));
+  }catch(e){
     clearInterval(msgT);
-    renderResults(parsed);
-  } catch(e) {
-    clearInterval(msgT);
-    document.getElementById('loadingMsg').innerHTML =
-      `<span style="color:var(--rust); font-weight:600;">Error:</span> ${e.message}<br><br>` +
-      `<button class="btn btn-ghost" style="width:auto;padding:10px 20px;" onclick="goStep4()">← Go back</button>`;
+    document.getElementById('loadingMsg').innerHTML=`<span style="color:var(--rust);font-weight:600">Error:</span> ${e.message}<br><br><button class="btn btn-ghost" style="width:auto;padding:10px 20px" onclick="goStep4()">← Go back</button>`;
   }
 }
 
-function renderResults(d) {
-  document.getElementById('loadingBlock').style.display = 'none';
-  const mv = MOVEMENTS[state.mv];
-  let html = `
-    <div class="result-card" style="border-left:3px solid var(--sage);">
+function renderResults(d){
+  document.getElementById('loadingBlock').style.display='none';
+  const mv=MOVEMENTS[state.mv];
+  document.getElementById('resultsBlock').innerHTML=`
+    <div class="result-card" style="border-left:3px solid var(--sage)">
       <div class="rc-label sage">Overall pattern — ${mv.name}</div>
-      <p style="font-size:13px; color:var(--muted); line-height:1.7;">${d.patternSummary}</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.7">${d.patternSummary}</p>
     </div>
-
     <div class="result-card">
       <div class="rc-label rust">What we found</div>
       ${d.movementFindings.map(f=>`
-        <div style="margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border);">
-          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">👁 ${f.observation}</div>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:3px;line-height:1.5;"><strong>Compensation:</strong> ${f.compensation}</div>
-          <div style="font-size:13px;color:var(--rust);line-height:1.5;"><strong>Root cause:</strong> ${f.rootCause}</div>
-        </div>
-      `).join('')}
+        <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px">👁 ${f.observation}</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:3px;line-height:1.5"><strong>Compensation:</strong> ${f.compensation}</div>
+          <div style="font-size:13px;color:var(--rust);line-height:1.5"><strong>Root cause:</strong> ${f.rootCause}</div>
+        </div>`).join('')}
     </div>
-
     <div class="result-card">
       <div class="rc-label gold">Priority areas to release</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
-        ${d.priorityAreas.map(a=>`<span style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);color:var(--gold);font-size:12px;padding:4px 12px;border-radius:100px;font-weight:600;">${a}</span>`).join('')}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+        ${d.priorityAreas.map(a=>`<span style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);color:var(--gold);font-size:12px;padding:4px 12px;border-radius:100px;font-weight:600">${a}</span>`).join('')}
       </div>
     </div>
-
-    <div style="margin-top:8px; margin-bottom:8px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);font-weight:600;margin-bottom:12px;">🧘 Your release plan</div>
+    <div style="margin-top:8px;margin-bottom:8px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:12px">🧘 Your release plan</div>
       ${d.releases.map((r,i)=>`
-        <div class="stretch-item" style="animation-delay:${0.1+i*0.08}s;">
-          <div class="si-header">
-            <div class="si-num">${i+1}</div>
-            <div class="si-name">${r.name}</div>
-          </div>
+        <div class="stretch-item" style="animation-delay:${.1+i*.08}s">
+          <div class="si-header"><div class="si-num">${i+1}</div><div class="si-name">${r.name}</div></div>
           <div class="si-badges">
             <span class="si-badge green">${r.type}</span>
             <span class="si-badge green">${r.duration}</span>
@@ -798,32 +968,47 @@ function renderResults(d) {
           </div>
           <p class="si-desc">${r.whyThisHelps}</p>
           <ol class="si-steps">${r.steps.map(s=>`<li>${s}</li>`).join('')}</ol>
-          ${r.cueToFeel ? `<div style="margin-top:10px;background:rgba(90,122,90,0.07);border:1px solid rgba(90,122,90,0.15);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--sage);line-height:1.5;">💬 <em>${r.cueToFeel}</em></div>` : ''}
-        </div>
-      `).join('')}
+          ${r.cueToFeel?`<div style="margin-top:10px;background:rgba(90,122,90,.07);border:1px solid rgba(90,122,90,.15);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--sage);line-height:1.5">💬 <em>${r.cueToFeel}</em></div>`:''}
+        </div>`).join('')}
     </div>
-
-    <div class="result-card" style="background:rgba(90,122,90,0.05);border-color:rgba(90,122,90,0.2);">
+    <div class="result-card" style="background:rgba(90,122,90,.05);border-color:rgba(90,122,90,.2)">
       <div class="rc-label sage">Retest — what to look for</div>
-      <p style="font-size:13px;color:var(--muted);line-height:1.7;">${d.reassessmentNote}</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.7">${d.reassessmentNote}</p>
     </div>
-
     <div class="disclaimer">Informational only — not a substitute for professional medical advice. Stop any exercise that causes sharp or worsening pain.</div>
-    <button class="btn btn-primary mt14" onclick="restartApp()">← New assessment</button>
-  `;
-  document.getElementById('resultsBlock').innerHTML = html;
-  document.getElementById('resultsBlock').style.display = 'block';
+    <button class="btn btn-primary mt14" onclick="restartApp()">← New assessment</button>`;
+  document.getElementById('resultsBlock').style.display='block';
 }
 
-function restartApp() {
-  if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
-  Object.assign(state,{mv:null,photos:[],areas:[],sensations:[],intensity:0,side:null,stream:null,cameraFacing:'user'});
+function restartApp(){
+  stopCamera();
+  Object.assign(state,{mv:null,photos:[],areas:[],sensations:[],intensity:0,side:null,camStream:null,camFacing:'user',poseDetected:false,countingDown:false});
   document.querySelectorAll('.movement-card').forEach(c=>c.classList.remove('selected'));
-  document.getElementById('toStep2Btn').disabled = true;
-  document.getElementById('capturedWrap').style.display = 'none';
-  const ta = document.getElementById('movementDesc');
-  if (ta) ta.value = '';
+  document.getElementById('toStep2Btn').disabled=true;
   goStep1();
+}
+
+// ══════════════════════════════════════════════════════
+// DEPLOY
+// ══════════════════════════════════════════════════════
+async function deployToGitHub(){
+  const key = prompt('Deploy key:');
+  if (!key) return;
+  const btn=document.getElementById('deployBtn');
+  btn.textContent='⏳ Deploying…';btn.disabled=true;
+  try{
+    const res=await fetch('https://YOUR-WORKER.workers.dev/deploy',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Deploy-Key':key},
+      body:JSON.stringify({
+        message:'HSS v0.7 deploy',
+        files:[{path:'index.html',content:document.documentElement.outerHTML}]
+      })
+    });
+    const data=await res.json();
+    btn.textContent=data.ok?'✅ Deployed!':'❌ Failed';
+  }catch(e){btn.textContent='❌ '+e.message;}
+  setTimeout(()=>{btn.textContent='🚀 Deploy';btn.disabled=false;},3000);
 }
 </script>
 </body>
