@@ -1,9 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>BodyLab</title>
+<title data-id="th-modified">BodyLab</title>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
@@ -204,11 +202,15 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
 .cam-loading-ring{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:var(--green);animation:spin 1s linear infinite}
 
 /* ── Deploy button ── */
-#deployBtn{position:fixed;bottom:20px;right:16px;z-index:500;background:var(--ink);color:var(--paper);border:none;border-radius:100px;padding:10px 18px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:inherit;display:flex;align-items:center;gap:6px;transition:all .2s}
-#deployBtn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+#deployBtn{background:none;border:none;cursor:pointer;font-size:18px;padding:4px;line-height:1;opacity:0.5;transition:opacity .2s}
+#deployBtn:hover{opacity:1}
 </style>
-</head>
-<body>
+<meta property="og:title" content="BodyLab" data-id="th-modified"><meta name="description" content="index-2" data-id="th-modified"><meta property="og:description" content="index-2" data-id="th-modified"><meta property="og:image" content="https://tiiny.host/assets/logo-purple-bg.png" data-id="th-modified"><meta property="og:url" content="https://rose-alma-83.tiiny.site/" data-id="th-modified"><meta property="og:type" content="website" data-id="th-modified"><script defer="" data-domain="rose-alma-83.tiiny.site" src="https://analytics.tiiny.site/js/plausible.js"></script><script type="text/javascript" src="https://tiiny.host/ad-script.js"></script></head>
+<body><div style="position: fixed !important; bottom: 0% !important; left: 0% !important; right: 0% !important; width: 100% !important; height: 55px !important; z-index: 9999 !important;"><a href="https://tiiny.host?ref=free-site">
+    <div style="padding: 10px !important; height: 55px; text-align: center; background: rgb(220,137,232) !important; background: linear-gradient(141deg, rgba(220,137,232,1) 0%, rgba(144,64,204,1) 100%) !important;">
+      <img style="height: 35px !important; width: auto !important;" src="https://tiiny.host/assets/img/ad.png" alt="tiiny.host">
+    </div>
+  </a></div>
 
 <!-- ════════════════════════════════════
      MAIN APP
@@ -219,7 +221,10 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
     <div class="brand">Body<em style="font-style:italic">Lab</em>
       <span style="font-size:10px;color:var(--muted);font-family:'Outfit',sans-serif;font-weight:500;letter-spacing:.05em">v0.7</span>
     </div>
-    <div class="phase-badge" id="phaseBadge">Select Movement</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="deployBtn" onclick="deployToGitHub()" title="Deploy" disabled="">⏳</button>
+      <div class="phase-badge" id="phaseBadge">Select Movement</div>
+    </div>
   </div>
   <div style="padding:0 20px">
     <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
@@ -236,8 +241,44 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
       <h1 class="serif-title" style="font-size:clamp(28px,8vw,40px);margin-bottom:14px">How does your<br>body <em>move</em> today?</h1>
       <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:28px">Choose a movement test. Perform it on camera. We'll identify your specific restrictions and build a personalised release plan.</p>
     </div>
-    <div class="movement-grid" id="movementGrid"></div>
-    <button class="btn btn-primary" id="toStep2Btn" onclick="goStep2()" disabled>Prepare this movement →</button>
+    <div class="movement-grid" id="movementGrid"><div class="movement-card" data-id="forward-fold"><div class="mv-icon">🧘</div>
+      <div class="mv-info">
+        <div class="mv-name">Standing Forward Fold</div>
+        <div class="mv-desc">Tests posterior chain mobility — hamstrings, calves, lower back.</div>
+        <div class="mv-tags"><span class="mv-tag">Lower back</span><span class="mv-tag">Hamstrings</span><span class="mv-tag">Glutes</span></div>
+      </div>
+      <div class="mv-check">✓</div></div><div class="movement-card" data-id="deep-squat"><div class="mv-icon">🏋️</div>
+      <div class="mv-info">
+        <div class="mv-name">Deep Squat Hold</div>
+        <div class="mv-desc">One of the best full-body mobility assessments.</div>
+        <div class="mv-tags"><span class="mv-tag">Hips</span><span class="mv-tag">Ankles</span><span class="mv-tag">Knees</span></div>
+      </div>
+      <div class="mv-check">✓</div></div><div class="movement-card" data-id="shoulder-reach"><div class="mv-icon">🙋</div>
+      <div class="mv-info">
+        <div class="mv-name">Overhead Arm Reach</div>
+        <div class="mv-desc">Tests shoulder, thoracic and lat mobility together.</div>
+        <div class="mv-tags"><span class="mv-tag">Shoulders</span><span class="mv-tag">Lats / side body</span><span class="mv-tag">Upper back / thoracic</span></div>
+      </div>
+      <div class="mv-check">✓</div></div><div class="movement-card" data-id="neck-rotation"><div class="mv-icon">🔄</div>
+      <div class="mv-info">
+        <div class="mv-name">Neck Rotation</div>
+        <div class="mv-desc">Reveals upper trap, SCM and cervical joint tension.</div>
+        <div class="mv-tags"><span class="mv-tag">Left neck</span><span class="mv-tag">Right neck</span><span class="mv-tag">Upper traps</span></div>
+      </div>
+      <div class="mv-check">✓</div></div><div class="movement-card" data-id="cat-cow"><div class="mv-icon">🐱</div>
+      <div class="mv-info">
+        <div class="mv-name">Cat-Cow Spinal Wave</div>
+        <div class="mv-desc">Reveals segmental stiffness along the whole spine.</div>
+        <div class="mv-tags"><span class="mv-tag">Lower back</span><span class="mv-tag">Mid back / thoracic</span><span class="mv-tag">Upper back</span></div>
+      </div>
+      <div class="mv-check">✓</div></div><div class="movement-card" data-id="hip-hinge"><div class="mv-icon">↩️</div>
+      <div class="mv-info">
+        <div class="mv-name">Hip Hinge</div>
+        <div class="mv-desc">Tests glute activation, hamstring tension and lumbar control.</div>
+        <div class="mv-tags"><span class="mv-tag">Glutes</span><span class="mv-tag">Hamstrings</span><span class="mv-tag">Lower back</span></div>
+      </div>
+      <div class="mv-check">✓</div></div></div>
+    <button class="btn btn-primary" id="toStep2Btn" onclick="goStep2()" disabled="">Prepare this movement →</button>
   </div>
 
   <!-- ── Step 2: Prepare ── -->
@@ -278,7 +319,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
 
     <!-- Fallback inputs -->
     <input type="file" id="photoFileCamera" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoInput(this)">
-    <input type="file" id="photoFileGallery" accept="image/*" multiple style="display:none" onchange="handlePhotoInput(this)">
+    <input type="file" id="photoFileGallery" accept="image/*" multiple="" style="display:none" onchange="handlePhotoInput(this)">
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn btn-ghost" style="flex:1;padding:11px;font-size:13px;margin-top:0" onclick="document.getElementById('photoFileCamera').click()">📸 Take photo</button>
       <button class="btn btn-ghost" style="flex:1;padding:11px;font-size:13px;margin-top:0" onclick="document.getElementById('photoFileGallery').click()">🖼️ Gallery</button>
@@ -293,7 +334,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
       <textarea id="movementDesc" oninput="checkStep3()" placeholder="e.g. I could only fold halfway, felt a strong pull behind my left knee…" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--ink);background:var(--paper);resize:vertical;line-height:1.6;outline:none"></textarea>
     </div>
 
-    <button class="btn btn-sage" id="toStep4Btn" onclick="goStep4()" disabled>Continue to feedback →</button>
+    <button class="btn btn-sage" id="toStep4Btn" onclick="goStep4()" disabled="">Continue to feedback →</button>
     <button class="btn btn-ghost" onclick="goStep2()">← Back to guide</button>
   </div>
 
@@ -366,7 +407,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
 ════════════════════════════════════ -->
 <div id="camOverlay">
   <div class="cam-video-wrap">
-    <video id="camVideo" autoplay playsinline muted></video>
+    <video id="camVideo" autoplay="" playsinline="" muted=""></video>
     <canvas id="camCanvas"></canvas>
     <div id="camGhost"></div>
     <div id="camFlash"></div>
@@ -395,7 +436,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
     <!-- Countdown -->
     <div class="cam-countdown" id="camCountdown">
       <div class="cd-ring-wrap">
-        <svg viewBox="0 0 80 80"><circle class="cd-track" cx="40" cy="40" r="35"/><circle class="cd-fill" id="cdFill" cx="40" cy="40" r="35"/></svg>
+        <svg viewBox="0 0 80 80"><circle class="cd-track" cx="40" cy="40" r="35"></circle><circle class="cd-fill" id="cdFill" cx="40" cy="40" r="35"></circle></svg>
         <div class="cd-num" id="cdNum">3</div>
       </div>
       <div class="cd-label">Hold still…</div>
@@ -419,8 +460,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Outfit',sans-serif;mi
   </div>
 </div>
 
-<!-- Deploy button -->
-<button id="deployBtn" onclick="deployToGitHub()">🚀 Deploy</button>
+
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -995,7 +1035,7 @@ async function deployToGitHub(){
   const key = prompt('Deploy key:');
   if (!key) return;
   const btn = document.getElementById('deployBtn');
-  btn.textContent = '⏳ Deploying…'; btn.disabled = true;
+  btn.textContent = '⏳'; btn.disabled = true;
   try {
     const res = await fetch('https://chiabot.nebgo.workers.dev/deploy', {
       method: 'POST',
@@ -1006,12 +1046,13 @@ async function deployToGitHub(){
       })
     });
     const data = await res.json();
-    btn.textContent = data.ok ? '✅ Deployed!' : '❌ Failed';
+    btn.textContent = data.ok ? '✅' : '❌';
   } catch(e) {
-    btn.textContent = '❌ ' + e.message;
+    btn.textContent = '❌';
   }
-  setTimeout(() => { btn.textContent = '🚀 Deploy'; btn.disabled = false; }, 3000);
+  setTimeout(() => { btn.textContent = '🚀'; btn.disabled = false; }, 3000);
 }
 </script>
-</body>
-</html>
+
+
+<div style="height: 55px !important;"></div></body></html>
