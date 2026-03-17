@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BodyLab Deploy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0f14;
+    color: #e8eaf0;
+    font-family: system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #161921;
+    border: 1px solid #2a3045;
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .logo {
+    font-size: 13px;
+    color: #5a7a5a;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #6b7494; margin-bottom: 28px; line-height: 1.5; }
+  label { display: block; font-size: 12px; color: #6b7494; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 8px; }
+  input[type=password] {
+    width: 100%;
+    padding: 13px 16px;
+    background: #0d0f14;
+    border: 1.5px solid #2a3045;
+    border-radius: 10px;
+    color: #e8eaf0;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 16px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  input[type=password]:focus { border-color: #7eedc8; }
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #7eedc8;
+    color: #0d0f14;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(126,237,200,0.3); }
+  button:disabled { opacity: 0.4; transform: none; box-shadow: none; cursor: not-allowed; }
+  #status {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    display: none;
+  }
+  #status.ok { background: rgba(126,237,200,0.08); border: 1px solid rgba(126,237,200,0.2); color: #7eedc8; }
+  #status.err { background: rgba(196,98,45,0.08); border: 1px solid rgba(196,98,45,0.2); color: #c4622d; }
+  #status.info { background: rgba(107,116,148,0.12); border: 1px solid #2a3045; color: #6b7494; }
+  .meta { margin-top: 20px; font-size: 11px; color: #3a3f55; text-align: center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">BodyLab</div>
+  <h1>Deploy</h1>
+  <p class="sub">Fetches the latest <code style="font-size:12px;color:#7eedc8">index.html</code> from GitHub and redeploys it.</p>
+
+  <label for="keyInput">Deploy key</label>
+  <input type="password" id="keyInput" placeholder="••••••••••••" autocomplete="current-password">
+
+  <button id="deployBtn" onclick="deploy()">🚀 Deploy now</button>
+
+  <div id="status"></div>
+  <div class="meta" id="meta"></div>
+</div>
+
+<script>
+const WORKER_URL = 'https://YOUR-WORKER.workers.dev/deploy';
+
+async function deploy() {
+  const key = document.getElementById('keyInput').value.trim();
+  if (!key) { showStatus('err', 'Enter your deploy key.'); return; }
+
+  const btn = document.getElementById('deployBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Fetching page…';
+  showStatus('info', 'Fetching index.html from your site…');
+
+  try {
+    // Fetch the live index.html from the same origin (busts cache)
+    const pageRes = await fetch('/index.html?_=' + Date.now());
+    if (!pageRes.ok) throw new Error('Could not fetch index.html (' + pageRes.status + ')');
+    const content = await pageRes.text();
+
+    btn.textContent = '⏳ Deploying…';
+    showStatus('info', 'Pushing to GitHub…');
+
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Deploy-Key': key
+      },
+      body: JSON.stringify({
+        message: 'Deploy index.html — ' + new Date().toISOString(),
+        files: [{ path: 'index.html', content }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(JSON.stringify(data));
+
+    const sha = data.results?.[0]?.sha?.substring(0, 7) || '—';
+    showStatus('ok', `✅ Deployed successfully\nCommit: ${sha}\nGitHub Pages will update in ~60 seconds.`);
+    document.getElementById('meta').textContent = new Date().toLocaleString();
+    document.getElementById('keyInput').value = '';
+
+  } catch(e) {
+    showStatus('err', '❌ ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🚀 Deploy now';
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = type;
+  el.style.display = 'block';
+  el.style.whiteSpace = 'pre-line';
+  el.textContent = msg;
+}
+
+// Allow Enter key to submit
+document.getElementById('keyInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') deploy();
+});
+</script>
+</body>
+</html>
