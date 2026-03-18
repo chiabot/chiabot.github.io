@@ -244,10 +244,10 @@ body{background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif;m
     </div>
   </div>
   <div style="padding:0 20px">
-    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width: 0%;"></div></div>
     <div class="progress-steps">
-      <span id="ps1">Select</span><span id="ps2">Prepare</span>
-      <span id="ps3">Record</span><span id="ps4">Feedback</span><span id="ps5">Plan</span>
+      <span id="ps1" class="done">Select</span><span id="ps2" class="done">Prepare</span>
+      <span id="ps3" class="">Record</span><span id="ps4" class="">Feedback</span><span id="ps5" class="">Plan</span>
     </div>
   </div>
 
@@ -314,14 +314,14 @@ body{background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif;m
   <div id="step2" class="section">
     <div style="padding:28px 0 18px;text-align:center">
       <div class="eyebrow">Prepare yourself</div>
-      <h2 class="serif-title" style="font-size:24px;margin-bottom:8px" id="poseTitle"></h2>
-      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseSub"></p>
+      <h2 class="serif-title" style="font-size:24px;margin-bottom:8px" id="poseTitle">Standing Forward Fold</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseSub">Tests posterior chain mobility — hamstrings, calves, lower back.</p>
     </div>
     <div class="pose-visual">
-      <span class="pose-figure" id="poseFigure"></span>
-      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseNote"></p>
+      <span class="pose-figure" id="poseFigure">🧘</span>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6" id="poseNote">Film from the side. Spine curve and leg angle are the key data.</p>
     </div>
-    <ul class="cue-list" id="cueList"></ul>
+    <ul class="cue-list" id="cueList"><li class="cue-item" style="animation-delay: 0s;"><div class="cue-dot"></div><span>Stand with feet hip-width apart, toes pointing forward</span></li><li class="cue-item" style="animation-delay: 0.07s;"><div class="cue-dot"></div><span>Inhale to lengthen your spine tall</span></li><li class="cue-item" style="animation-delay: 0.14s;"><div class="cue-dot"></div><span>Exhale and fold forward from the hips — not the waist</span></li><li class="cue-item" style="animation-delay: 0.21s;"><div class="cue-dot"></div><span>Let arms hang heavy. Don't force the depth</span></li><li class="cue-item" style="animation-delay: 0.28s;"><div class="cue-dot"></div><span>Hold your deepest comfortable position for 5–8 slow breaths</span></li></ul>
     <button class="btn btn-primary" onclick="goStep3()">I'm ready — open camera →</button>
     <button class="btn btn-ghost" onclick="goStep1()">← Change movement</button>
   </div>
